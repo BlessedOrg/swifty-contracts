@@ -76,7 +76,7 @@ contract LotteryV2 is Ownable {
         _;
     }
 
-    function deposit(uint256 amount) public payable whenLotteryNotActive {
+    function deposit(uint256 amount) public whenLotteryNotActive {
         require(usdcContractAddr != address(0), "USDC contract address not set");
         require(amount > 0, "No funds sent");
         require(
@@ -235,5 +235,22 @@ contract LotteryV2 is Ownable {
       } else {
         revert("Participant is not claimable");
       }
+    }
+
+    function setLotteryV1Addr(address _lotteryV1Addr) public onlySeller {
+        lotteryV1Addr = _lotteryV1Addr;
+    }
+
+    function transferDeposit(address _participant, uint256 _amount) public {
+        require(lotteryV1Addr == msg.sender, "Only whitelisted may call this function");
+
+        if(deposits[_participant] == 0) {
+            participants.push(_participant);
+        }
+        deposits[_participant] += _amount;
+
+        if(rolledNumbers[_participant] == 0) {
+            rolledNumbers[_participant] = getRandomNumber();
+        }
     }
 }

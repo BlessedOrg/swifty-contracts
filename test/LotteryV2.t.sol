@@ -5,6 +5,7 @@ import { Test, console2 } from "forge-std/Test.sol";
 import "forge-std/console.sol";
 import { NFTLotteryTicket } from "../src/NFTLotteryTicket.sol";
 import { LotteryV2 } from "../src/LotteryV2.sol";
+import { Lottery } from "../src/Lottery.sol";
 import { USDC } from "../src/USDC.sol";
 
 contract MockedLotteryV2 is LotteryV2 {
@@ -439,32 +440,72 @@ contract LotteryV2Test is Test {
     }     
 
     function test_randomNumberFailedTolerance() public {
-        address user = address(3);
-        uint256 depositAmount = 10000;
+      address user = address(3);
+      uint256 depositAmount = 10000;
 
-        provideUsdc(user, depositAmount);
-        vm.startPrank(user);
-        lottery.deposit(depositAmount);
-        vm.stopPrank();
+      provideUsdc(user, depositAmount);
+      vm.startPrank(user);
+      lottery.deposit(depositAmount);
+      vm.stopPrank();
 
-        vm.startPrank(seller);
-        NFTLotteryTicket nftLotteryTicket = new NFTLotteryTicket("ipfs://example_uri/", false);
-        nftLotteryTicket.setDepositContractAddr(address(lottery));
-        lottery.setNftContractAddr(address(nftLotteryTicket));
-        lottery.setNumberOfTickets(10);
-        lottery.setMinimumDepositAmount(depositAmount);
-        lottery.setRollTolerance(6);
-        lottery.startLottery();
-        lottery.setRandomNumber();
+      vm.startPrank(seller);
+      NFTLotteryTicket nftLotteryTicket = new NFTLotteryTicket("ipfs://example_uri/", false);
+      nftLotteryTicket.setDepositContractAddr(address(lottery));
+      lottery.setNftContractAddr(address(nftLotteryTicket));
+      lottery.setNumberOfTickets(10);
+      lottery.setMinimumDepositAmount(depositAmount);
+      lottery.setRollTolerance(6);
+      lottery.startLottery();
+      lottery.setRandomNumber();
 
-        lottery.setBuyerRandomNumber(user, 57);
-        lottery.setSellerRandomNumber(50);
+      lottery.setBuyerRandomNumber(user, 57);
+      lottery.setSellerRandomNumber(50);
 
-        lottery.endLottery();
-        vm.stopPrank();
-        
-        vm.startPrank(user);
-        assertEq(lottery.isClaimable(user), false, "user number should not be claimable");
-        vm.stopPrank();
+      lottery.endLottery();
+      vm.stopPrank();
+      
+      vm.startPrank(user);
+      assertEq(lottery.isClaimable(user), false, "user number should not be claimable");
+      vm.stopPrank();
     }     
+
+    function test_transferDeposit() public {
+      address john = address(3);
+      address max = address(3);
+      uint256 depositAmount = 10000;
+
+      vm.startPrank(seller);
+      usdcToken.transfer(john, depositAmount);
+      usdcToken.transfer(max, depositAmount);
+      Lottery lotteryV1 = new Lottery(seller);
+      lotteryV1.setUsdcContractAddr(address(usdcToken));
+      vm.stopPrank();
+
+      vm.startPrank(max);
+      usdcToken.approve(address(lotteryV1), depositAmount);
+      lotteryV1.deposit(depositAmount);
+      vm.stopPrank();
+
+      vm.startPrank(john);
+      usdcToken.approve(address(lotteryV1), depositAmount);
+      lotteryV1.deposit(depositAmount);
+      vm.stopPrank();
+
+      vm.startPrank(seller);
+      NFTLotteryTicket nftLotteryTicket = new NFTLotteryTicket("ipfs://example_uri/", false);
+      nftLotteryTicket.setDepositContractAddr(address(lotteryV1));
+      lotteryV1.setNftContractAddr(address(nftLotteryTicket));
+      lotteryV1.setNumberOfTickets(1);
+      lotteryV1.setMinimumDepositAmount(depositAmount);
+      lotteryV1.startLottery();
+      lotteryV1.selectWinners();
+      lotteryV1.endLottery();
+      lottery.setLotteryV1Addr(address(lotteryV1));
+      
+
+      assertEq(lottery.getParticipants().length == 0, true, "no deposits at second lottery");
+      lotteryV1.transferNonWinnerDeposits(address(lottery));
+      assertEq(lottery.getParticipants().length == 1, true, "transffered deposit at second lottery");
+      vm.stopPrank();
+    }
 }
