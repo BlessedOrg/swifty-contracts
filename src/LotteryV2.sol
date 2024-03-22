@@ -38,6 +38,8 @@ contract LotteryV2 is Ownable {
     address public usdcContractAddr;
     address public lotteryV1Addr;
 
+    uint256 public finishAt;
+
     mapping(address => uint256) public rolledNumbers;
     uint256 public rollPrice;
     uint256 public rollTolerance = 0;
@@ -77,6 +79,7 @@ contract LotteryV2 is Ownable {
     }
 
     function deposit(uint256 amount) public whenLotteryNotActive {
+        require(finishAt > block.timestamp, "Deposits are not possible anymore");
         require(usdcContractAddr != address(0), "USDC contract address not set");
         require(amount > 0, "No funds sent");
         require(
@@ -211,6 +214,7 @@ contract LotteryV2 is Ownable {
     }
 
     function roll() public {
+        require(finishAt > block.timestamp, "Rolling is not possible anymore");
         require(rollPrice > 0, "No roll price set");
         require(deposits[msg.sender] >= rollPrice + minimumDepositAmount, "Insufficient funds");
 
@@ -239,6 +243,10 @@ contract LotteryV2 is Ownable {
 
     function setLotteryV1Addr(address _lotteryV1Addr) public onlySeller {
         lotteryV1Addr = _lotteryV1Addr;
+    }
+
+    function setFinishAt(uint _finishAt) public onlySeller {
+        finishAt = _finishAt;
     }
 
     function transferDeposit(address _participant, uint256 _amount) public {

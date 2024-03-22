@@ -39,6 +39,8 @@ contract Lottery is Ownable {
     address public nftContractAddr;
     address public usdcContractAddr;
 
+    uint256 public finishAt;
+
     event LotteryStarted();
     event WinnerSelected(address indexed winner);
     event LotteryEnded();
@@ -74,6 +76,7 @@ contract Lottery is Ownable {
     }
 
     function deposit(uint256 amount) public payable whenLotteryNotActive {
+        require(finishAt > block.timestamp, "Deposits are not possible anymore");
         require(usdcContractAddr != address(0), "USDC contract address not set");
         require(amount > 0, "No funds sent");
         require(
@@ -261,6 +264,10 @@ contract Lottery is Ownable {
 
     function setUsdcContractAddr(address _usdcContractAddr) public onlyOwner {
         usdcContractAddr = _usdcContractAddr;
+    }
+
+    function setFinishAt(uint _finishAt) public onlySeller {
+        finishAt = _finishAt;
     }
 
     function transferNonWinnerDeposits(address lotteryV2addr) public onlySeller {

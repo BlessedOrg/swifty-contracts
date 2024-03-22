@@ -45,6 +45,7 @@ contract LotteryV2Test is Test {
         // Deploy the USDC token contract
         usdcToken = new USDC("USDC", "USDC", 6, 1000000000000000000000000, 1000000000000000000000000);
         lottery.setUsdcContractAddr(address(usdcToken));
+        lottery.setFinishAt(block.timestamp + 100000);
 
         // Set the multisig wallet address in the Deposit contract
         lottery.setMultisigWalletAddress(multisigWallet);
@@ -72,6 +73,25 @@ contract LotteryV2Test is Test {
         vm.startPrank(user);
         lottery.deposit(depositAmount);
         assertEq(lottery.deposits(user), depositAmount, "Deposit amount should be recorded correctly");
+        vm.stopPrank();
+    }
+
+    function test_DepositNotPossible() public {
+        uint256 depositAmount = 10000;
+        address user = address(3); // Example user address
+
+
+        provideUsdc(user, depositAmount); // Provide 10000 usdc to the user
+
+        vm.startPrank(seller);
+        lottery.setFinishAt(0);
+        vm.stopPrank();
+
+        vm.startPrank(user);
+        vm.expectRevert("Only seller can call this function");
+        lottery.setFinishAt(1000);
+        vm.expectRevert("Deposits are not possible anymore");
+        lottery.deposit(depositAmount);
         vm.stopPrank();
     }
 
@@ -405,6 +425,31 @@ contract LotteryV2Test is Test {
         vm.stopPrank();
     }
 
+    function test_rollNotPossible() public {
+        address user = address(3);
+        uint256 depositAmount = 10000;
+
+        provideUsdc(user, depositAmount);
+
+        vm.startPrank(seller);
+        lottery.setRollPrice(100);
+        lottery.setMinimumDepositAmount(depositAmount);
+        vm.stopPrank();
+
+        vm.startPrank(user);
+        lottery.deposit(depositAmount);
+        vm.stopPrank();
+
+        vm.startPrank(seller);
+        lottery.setFinishAt(0);
+        vm.stopPrank();
+
+        vm.startPrank(user);
+        vm.expectRevert("Rolling is not possible anymore");
+        lottery.roll();
+        vm.stopPrank();
+    }
+
     function test_randomNumberTolerance() public {
         address user = address(3);
         uint256 depositAmount = 10000;
@@ -479,6 +524,7 @@ contract LotteryV2Test is Test {
       usdcToken.transfer(max, depositAmount);
       Lottery lotteryV1 = new Lottery(seller);
       lotteryV1.setUsdcContractAddr(address(usdcToken));
+      lotteryV1.setFinishAt(vm.unixTime() + 100000);
       vm.stopPrank();
 
       vm.startPrank(max);
