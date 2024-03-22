@@ -29,6 +29,7 @@ contract LotteryTest is Test {
         // Deploy the USDC token contract
         usdcToken = new USDC("USDC", "USDC", 6, 1000000000000000000000000, 1000000000000000000000000);
         lottery.setUsdcContractAddr(address(usdcToken));
+        lottery.setFinishAt(vm.unixTime() + 100000);
 
         // Set the multisig wallet address in the Deposit contract
         lottery.setMultisigWalletAddress(multisigWallet);
@@ -58,6 +59,29 @@ contract LotteryTest is Test {
         assertEq(lottery.deposits(user), depositAmount, "Deposit amount should be recorded correctly");
         vm.stopPrank();
     }
+
+    function test_DepositTimeConstraint() public {
+        uint256 depositAmount = 10000;
+        address user = address(3); // Example user address
+
+
+        provideUsdc(user, depositAmount); // Provide 10000 usdc to the user
+
+        vm.startPrank(user);
+        lottery.deposit(100);
+        assertEq(lottery.deposits(user), 100, "Deposit amount should be recorded correctly");
+        vm.stopPrank();
+
+        vm.startPrank(seller);
+        lottery.setFinishAt(0);
+        vm.stopPrank();
+
+        vm.startPrank(user);
+        vm.expectRevert("Deposits are not possible anymore");
+        lottery.deposit(100);
+        vm.stopPrank();
+
+    }    
 
     function test_ChangeLotteryState() public {
         vm.prank(seller);
