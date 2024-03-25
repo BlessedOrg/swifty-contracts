@@ -4,6 +4,7 @@ pragma solidity ^0.8.13;
 import { Ownable } from "../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
 import "src/interfaces/INFTLotteryTicket.sol";
 import "src/interfaces/IERC20.sol";
+import "src/interfaces/IAuctionV1.sol";
 
 contract LotteryV2 is Ownable {
     constructor(address _seller)
@@ -259,6 +260,17 @@ contract LotteryV2 is Ownable {
 
         if(rolledNumbers[_participant] == 0) {
             rolledNumbers[_participant] = getRandomNumber();
+        }
+    }
+
+    function transferNonWinnerDeposits(address auctionV1addr) public onlySeller {
+        for(uint256 i = 0; i < participants.length; i++) {
+            if(!isWinner(participants[i])) {
+              uint256 currentDeposit = deposits[participants[i]];
+              deposits[participants[i]] = 0;
+              IERC20(usdcContractAddr).transfer(auctionV1addr, currentDeposit);
+              IAuctionV1(auctionV1addr).transferDeposit(participants[i], currentDeposit);
+            }
         }
     }
 }

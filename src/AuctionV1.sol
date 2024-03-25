@@ -5,6 +5,7 @@ import { Ownable } from "../lib/openzeppelin-contracts/contracts/access/Ownable.
 import "src/interfaces/INFTLotteryTicket.sol";
 import "src/interfaces/IERC20.sol";
 import "src/interfaces/ILotteryV2.sol";
+import "src/interfaces/IAuctionV2.sol";
 
 contract AuctionV1 is Ownable {
     constructor(address _seller)
@@ -43,6 +44,7 @@ contract AuctionV1 is Ownable {
 
     address public nftContractAddr;
     address public usdcContractAddr;
+    address public lotteryV2Addr;
 
     uint256 public finishAt;
 
@@ -321,12 +323,27 @@ contract AuctionV1 is Ownable {
         finishAt = _finishAt;
     }
 
-    function transferNonWinnerDeposits(address destinationAddr) public onlySeller {
+    function setLotteryV2Addr(address _lotteryV2Addr) public onlySeller {
+        lotteryV2Addr = _lotteryV2Addr;
+    }    
+
+    function transferDeposit(address _participant, uint256 _amount) public {
+        require(lotteryV2Addr == msg.sender, "Only whitelisted may call this function");
+
+        if(deposits[msg.sender] == 0) {
+            participants.push(_participant);
+        }
+        deposits[_participant] += _amount;
+        prevRoundDeposits += 1;
+    }
+
+
+    function transferNonWinnerBids(address destinationAddr) public onlySeller {
         for(uint256 i = 0; i < participants.length; i++) {
             uint256 currentDeposit = deposits[participants[i]];
             deposits[participants[i]] = 0;
             IERC20(usdcContractAddr).transfer(destinationAddr, currentDeposit);
-            ILotteryV2(destinationAddr).transferDeposit(participants[i], currentDeposit);
+            IAuctionV2(destinationAddr).transferDeposit(participants[i], currentDeposit);
 
             if (i < participants.length - 1) {
                 participants[i] = participants[participants.length - 1];
