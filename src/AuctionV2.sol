@@ -43,6 +43,7 @@ contract AuctionV2 is Ownable {
 
     address public nftContractAddr;
     address public usdcContractAddr;
+    address public auctionV1Addr;
 
     uint256 public finishAt;
 
@@ -261,4 +262,19 @@ contract AuctionV2 is Ownable {
     function setFinishAt(uint _finishAt) public onlyOperator() {
         finishAt = _finishAt;
     }
+
+    function setAuctionV1Addr(address _auctionV1Addr) public onlyOperator() {
+        auctionV1Addr = _auctionV1Addr;
+    }
+
+    function transferDeposit(address _participant, uint256 _amount) public {
+        require(auctionV1Addr == msg.sender, "Only whitelisted may call this function");
+
+        if(isParticipant(_participant)) {
+            deposits[_participant].amount += _amount;
+        } else {
+            deposits[_participant] = Deposit(_amount, block.timestamp, false);
+            participants.push(_participant);
+        }
+    }    
 }

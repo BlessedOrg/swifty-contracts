@@ -6,6 +6,7 @@ import "forge-std/console.sol";
 import { NFTLotteryTicket } from "../src/NFTLotteryTicket.sol";
 import { AuctionV1 } from "../src/AuctionV1.sol";
 import { USDC } from "../src/USDC.sol";
+import { LotteryV2 } from "../src/LotteryV2.sol";
 
 contract AuctionV1Test is Test {
     AuctionV1 public auction;
@@ -419,4 +420,35 @@ contract AuctionV1Test is Test {
         assertEq(auction.prevRoundDeposits() == 0, true, "no deposits in prev round");
         vm.stopPrank();
     }    
+
+    function test_transferDeposit() public {
+        address john = address(3);
+        address max = address(4);
+        uint256 depositAmount = 10000;
+        provideUsdc(john, depositAmount);
+        provideUsdc(max, depositAmount);
+
+        vm.startPrank(seller);
+        LotteryV2 lotteryV2 = new LotteryV2(seller);
+        lotteryV2.setUsdcContractAddr(address(usdcToken));
+        lotteryV2.setFinishAt(vm.unixTime() + 100000);
+        vm.stopPrank();
+
+        vm.startPrank(max);
+        usdcToken.approve(address(lotteryV2), depositAmount);
+        lotteryV2.deposit(depositAmount);
+        vm.stopPrank();
+
+        vm.startPrank(john);
+        usdcToken.approve(address(lotteryV2), depositAmount);
+        lotteryV2.deposit(depositAmount);
+        vm.stopPrank();
+
+        vm.startPrank(seller);
+        auction.setLotteryV2Addr(address(lotteryV2));
+        assertEq(auction.getParticipants().length, 0, "no deposits");
+        lotteryV2.transferNonWinnerDeposits(address(auction));
+        assertEq(auction.getParticipants().length, 2, "two deposits migrated");
+        vm.stopPrank();
+    }
 }
