@@ -16,16 +16,18 @@ contract AuctionV1Test is Test {
     uint256 private multisigWalletPrivateKey = 0xb334d;
 
     address seller;
+    address operator;
     address multisigWallet;
 
     function setUp() public {
         // Generate addresses from private keys
         seller = vm.addr(sellerPrivateKey);
+        operator = vm.addr(0x1234);
         multisigWallet = vm.addr(multisigWalletPrivateKey);
-
+        vm.warp(1700819134); // mock time so Gelato round calculate works
         vm.startPrank(seller);
         // Deploy the Deposit contract with the seller address
-        auction = new AuctionV1(seller);
+        auction = new AuctionV1(seller, operator);
 
         // Deploy the USDC token contract
         usdcToken = new USDC("USDC", "USDC", 6, 1000000000000000000000000, 1000000000000000000000000);
@@ -429,7 +431,7 @@ contract AuctionV1Test is Test {
         provideUsdc(max, depositAmount);
 
         vm.startPrank(seller);
-        LotteryV2 lotteryV2 = new LotteryV2(seller);
+        LotteryV2 lotteryV2 = new LotteryV2(seller, operator);
         lotteryV2.setUsdcContractAddr(address(usdcToken));
         lotteryV2.setFinishAt(vm.unixTime() + 100000);
         vm.stopPrank();

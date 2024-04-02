@@ -2,14 +2,16 @@
 pragma solidity ^0.8.13;
 
 import { Ownable } from "../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
+import { GelatoVRFConsumerBase } from "../lib/vrf-contracts/contracts/GelatoVRFConsumerBase.sol";
 import "src/interfaces/INFTLotteryTicket.sol";
 import "src/interfaces/IERC20.sol";
 import "src/interfaces/IAuctionV1.sol";
 
-contract LotteryV2 is Ownable {
-    constructor(address _seller)
+contract LotteryV2 is GelatoVRFConsumerBase, Ownable {
+    constructor(address _seller, address _operatorAddr)
     Ownable(msg.sender) {
         seller = _seller;
+        operatorAddr = _operatorAddr;
     }
 
     enum LotteryState {
@@ -22,6 +24,7 @@ contract LotteryV2 is Ownable {
 
     address public multisigWalletAddress;
     address public seller;
+    address public immutable operatorAddr;
 
     uint256 public minimumDepositAmount;
     uint256 public numberOfTickets;
@@ -48,6 +51,8 @@ contract LotteryV2 is Ownable {
     event LotteryStarted();
     event WinnerSelected(address indexed winner);
     event LotteryEnded();
+    event RandomRequested(address indexed requester);
+    event RandomFullfiled(address indexed requester, uint256 number);   
 
     modifier onlySeller() {
         require(msg.sender == seller, "Only seller can call this function");
@@ -79,6 +84,26 @@ contract LotteryV2 is Ownable {
         _;
     }
 
+    function _operator() internal view override returns (address) {
+        return operatorAddr;
+    } 
+
+    function requestRandomness(bytes memory) external {
+        _requestRandomness(abi.encode(msg.sender));
+        emit RandomRequested(msg.sender);
+    }
+
+    function _fulfillRandomness(uint256 randomness, uint256, bytes memory extraData) internal override {
+        address requestedBy = abi.decode(extraData, (address));
+        
+        if(requestedBy == seller) {
+            rolledNumbers[requestedBy] = randomness;
+        } else {
+            randomNumber = randomness;
+        }
+        emit RandomFullfiled(requestedBy, randomness);
+    }           
+
     function deposit(uint256 amount) public whenLotteryNotActive {
         require(finishAt > block.timestamp, "Deposits are not possible anymore");
         require(usdcContractAddr != address(0), "USDC contract address not set");
@@ -96,7 +121,8 @@ contract LotteryV2 is Ownable {
         deposits[msg.sender] += amount;
 
         if(rolledNumbers[msg.sender] == 0) {
-            rolledNumbers[msg.sender] = getRandomNumber();
+            _requestRandomness(abi.encode(msg.sender));
+            emit RandomRequested(msg.sender);
         }
     }
 

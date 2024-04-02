@@ -7,3 +7,6 @@
 [submodule "lib/foundry-chainlink-toolkit"]
 	path = lib/foundry-chainlink-toolkit
 	url = https://github.com/smartcontractkit/foundry-chainlink-toolkit
+[submodule "lib/vrf-contracts"]
+	path = lib/vrf-contracts
+	url = https://github.com/gelatodigital/vrf-contracts

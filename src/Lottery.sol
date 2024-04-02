@@ -2,14 +2,17 @@
 pragma solidity ^0.8.13;
 
 import { Ownable } from "../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
+import { GelatoVRFConsumerBase } from "../lib/vrf-contracts/contracts/GelatoVRFConsumerBase.sol";
 import "src/interfaces/INFTLotteryTicket.sol";
 import "src/interfaces/IERC20.sol";
 import "src/interfaces/ILotteryV2.sol";
 
-contract Lottery is Ownable {
-    constructor(address _seller)
+contract Lottery is GelatoVRFConsumerBase, Ownable {
+    constructor(address _seller, address _operatorAddr)
     Ownable(msg.sender) {
         seller = _seller;
+        randomNumber = getRandomNumber();
+        operatorAddr = _operatorAddr;
     }
 
     enum LotteryState {
@@ -24,6 +27,7 @@ contract Lottery is Ownable {
 
     address public multisigWalletAddress;
     address public seller;
+    address public immutable operatorAddr;
 
     uint256 public minimumDepositAmount;
     uint256 public numberOfTickets;
@@ -44,6 +48,8 @@ contract Lottery is Ownable {
     event LotteryStarted();
     event WinnerSelected(address indexed winner);
     event LotteryEnded();
+    event RandomRequested(address indexed requester);
+    event RandomFullfiled(uint256 number);
 
     modifier onlySeller() {
         require(msg.sender == seller, "Only seller can call this function");
@@ -73,6 +79,10 @@ contract Lottery is Ownable {
     modifier whenLotteryNotActive() {
         require(lotteryState != LotteryState.ACTIVE, "Lottery is currently active");
         _;
+    }
+
+    function _operator() internal view override returns (address) {
+        return operatorAddr;
     }
 
     function deposit(uint256 amount) public payable whenLotteryNotActive {
@@ -149,6 +159,16 @@ contract Lottery is Ownable {
         IERC20(usdcContractAddr).transfer(seller, amountToSeller);
     }
 
+    function requestRandomness() external onlySeller {
+        _requestRandomness(abi.encode(msg.sender));
+        emit RandomRequested(msg.sender);
+    } 
+
+    function _fulfillRandomness(uint256 randomness, uint256, bytes memory) internal override {
+        randomNumber = randomness;
+        emit RandomFullfiled(randomness);
+    }    
+
     function getRandomNumber () public view onlySeller returns (uint256) {
         // Replace with actual VRF result
         return uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao, msg.sender))); 
@@ -172,7 +192,6 @@ contract Lottery is Ownable {
                 numberOfTickets--;
             }
         } else {
-            randomNumber = getRandomNumber();
             // shuffle array of winners
             for (uint j = 0; j < eligibleParticipants.length; j++) {
                 uint n = j + randomNumber % (eligibleParticipants.length - j);
