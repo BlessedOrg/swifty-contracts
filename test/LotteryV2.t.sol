@@ -9,7 +9,7 @@ import { Lottery } from "../src/Lottery.sol";
 import { USDC } from "../src/USDC.sol";
 
 contract MockedLotteryV2 is LotteryV2 {
-    constructor(address _seller) LotteryV2(_seller)  {
+    constructor(address _seller, address _operatorAddr) LotteryV2(_seller, _operatorAddr)  {
          // Child construction code goes here
     }
 
@@ -31,16 +31,18 @@ contract LotteryV2Test is Test {
     uint256 private multisigWalletPrivateKey = 0xb334d;
 
     address seller;
+    address operator;
     address multisigWallet;
 
     function setUp() public {
         // Generate addresses from private keys
         seller = vm.addr(sellerPrivateKey);
+        operator = vm.addr(0x1234);
         multisigWallet = vm.addr(multisigWalletPrivateKey);
-
+        vm.warp(1700819134); // mock time so Gelato round calculate works
         vm.startPrank(seller);
         // Deploy the Deposit contract with the seller address
-        lottery = new MockedLotteryV2(seller);
+        lottery = new MockedLotteryV2(seller, operator);
 
         // Deploy the USDC token contract
         usdcToken = new USDC("USDC", "USDC", 6, 1000000000000000000000000, 1000000000000000000000000);
@@ -522,7 +524,7 @@ contract LotteryV2Test is Test {
       vm.startPrank(seller);
       usdcToken.transfer(john, depositAmount);
       usdcToken.transfer(max, depositAmount);
-      Lottery lotteryV1 = new Lottery(seller);
+      Lottery lotteryV1 = new Lottery(seller, address(66));
       lotteryV1.setUsdcContractAddr(address(usdcToken));
       lotteryV1.setFinishAt(vm.unixTime() + 100000);
       vm.stopPrank();

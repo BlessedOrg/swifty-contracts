@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
-import { Test, console2 } from "forge-std/Test.sol";
+import { Test, console2, Vm } from "forge-std/Test.sol";
 import "forge-std/console.sol";
 import { NFTLotteryTicket } from "../src/NFTLotteryTicket.sol";
 import { Lottery } from "../src/Lottery.sol";
@@ -16,15 +16,17 @@ contract LotteryTest is Test {
 
     address seller;
     address multisigWallet;
+    address operator = address(9);
 
     function setUp() public {
         // Generate addresses from private keys
         seller = vm.addr(sellerPrivateKey);
         multisigWallet = vm.addr(multisigWalletPrivateKey);
+        vm.warp(1700819134); // mock time so Gelato round calculate works
 
         vm.startPrank(seller);
         // Deploy the Deposit contract with the seller address
-        lottery = new Lottery(seller);
+        lottery = new Lottery(seller, operator);
 
         // Deploy the USDC token contract
         usdcToken = new USDC("USDC", "USDC", 6, 1000000000000000000000000, 1000000000000000000000000);
@@ -384,5 +386,35 @@ contract LotteryTest is Test {
         vm.stopPrank();
         assertEq(lottery.getWinners().length, 1, "just one winner should be selected");
         assertEq(lottery.isWinner(lottery.getWinners()[0]), true, "user should be winner");
+    }
+
+    function test_GelatoVRF() public {
+        vm.startPrank(seller);
+        lottery.requestRandomness();
+        vm.stopPrank();
+
+        uint256 randomness = 0x471403f3a8764edd4d39c7748847c07098c05e5a16ed7b083b655dbab9809fae;
+        uint256 requestId = 0;
+        uint256 roundId = 2671924;
+        bytes memory data = abi.encode(address(seller));
+        bytes memory dataWithRound = abi.encode(roundId, abi.encode(requestId, data));
+        uint256 prevRandom = lottery.randomNumber();
+        vm.prank(operator);
+        lottery.fulfillRandomness(randomness, dataWithRound);
+        assertNotEq(prevRandom, lottery.randomNumber());
+    }
+
+    function test_GelatoVRFoperator() public {
+        vm.startPrank(seller);
+        lottery.requestRandomness();
+
+        uint256 randomness = 0x471403f3a8764edd4d39c7748847c07098c05e5a16ed7b083b655dbab9809fae;
+        uint256 requestId = 0;
+        uint256 roundId = 2671924;
+        bytes memory data = abi.encode(address(seller));
+        bytes memory dataWithRound = abi.encode(roundId, abi.encode(requestId, data));
+        vm.expectRevert("only operator");
+        lottery.fulfillRandomness(randomness, dataWithRound);       
+        vm.stopPrank();
     }    
 }
