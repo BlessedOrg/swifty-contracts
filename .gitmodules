@@ -10,3 +10,6 @@
 [submodule "lib/vrf-contracts"]
 	path = lib/vrf-contracts
 	url = https://github.com/gelatodigital/vrf-contracts
+[submodule "lib/relay-context-contracts"]
+	path = lib/relay-context-contracts
+	url = https://github.com/gelatodigital/relay-context-contracts
