@@ -2,13 +2,18 @@
 pragma solidity ^0.8.13;
 
 import { Ownable } from "../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
+import {
+    ERC2771Context
+} from "../lib/relay-context-contracts/contracts/vendor/ERC2771Context.sol";
+import { Context } from "../lib/openzeppelin-contracts/contracts/utils/Context.sol";
 import "src/interfaces/INFTLotteryTicket.sol";
 import "src/interfaces/IERC20.sol";
 import "src/interfaces/ILotteryV2.sol";
 
-contract AuctionV2 is Ownable {
+contract AuctionV2 is Ownable, ERC2771Context {
     constructor(address _seller)
-    Ownable(msg.sender) {
+    ERC2771Context(0xd8253782c45a12053594b9deB72d8e8aB2Fca54c)
+    Ownable(_msgSender()) {
         seller = _seller;
     }
 
@@ -52,13 +57,13 @@ contract AuctionV2 is Ownable {
     event LotteryEnded();
 
     modifier onlySeller() {
-        require(msg.sender == seller, "Only seller can call this function");
+        require(_msgSender() == seller, "Only seller can call this function");
         _;
     }
 
     modifier onlyOperator() {
         // operator = seller or owner or specified address
-        require(msg.sender == seller || msg.sender == owner() || operators[msg.sender], "Only operator can call this function");
+        require(_msgSender() == seller || _msgSender() == owner() || operators[_msgSender()], "Only operator can call this function");
         _;
     }    
 
@@ -78,7 +83,7 @@ contract AuctionV2 is Ownable {
     }
 
     modifier hasNotMinted() {
-        require(!hasMinted[msg.sender], "NFT already minted");
+        require(!hasMinted[_msgSender()], "NFT already minted");
         _;
     }
 
@@ -86,6 +91,16 @@ contract AuctionV2 is Ownable {
         require(lotteryState != LotteryState.ACTIVE, "Lottery is currently active");
         _;
     }
+
+    function _msgSender() internal view override(ERC2771Context, Context)
+        returns (address sender) {
+        sender = ERC2771Context._msgSender();
+    }
+
+    function _msgData() internal view override(ERC2771Context, Context)
+        returns (bytes calldata) {
+        return ERC2771Context._msgData();
+    }    
 
     function isParticipant(address _participant) public view returns (bool) {
         for (uint i = 0; i < participants.length; i++) {
@@ -97,23 +112,23 @@ contract AuctionV2 is Ownable {
     }    
 
     function deposit(uint256 amount) public payable {
-        require(!isWinner(msg.sender), "Winners cannot deposit");
+        require(!isWinner(_msgSender()), "Winners cannot deposit");
         require(finishAt > block.timestamp, "Deposits are not possible anymore");
         require(usdcContractAddr != address(0), "USDC contract address not set");
         require(amount >= initialPrice, "Insufficient funds sent");
         require(amount > 0, "No funds sent");
         require(
-            IERC20(usdcContractAddr).allowance(msg.sender, address(this)) >= amount, 
+            IERC20(usdcContractAddr).allowance(_msgSender(), address(this)) >= amount, 
             "Insufficient allowance"
         );
 
-        IERC20(usdcContractAddr).transferFrom(msg.sender, address(this), amount);
+        IERC20(usdcContractAddr).transferFrom(_msgSender(), address(this), amount);
         
-        if(isParticipant(msg.sender)) {
-            deposits[msg.sender].amount += amount;
+        if(isParticipant(_msgSender())) {
+            deposits[_msgSender()].amount += amount;
         } else {
-            deposits[msg.sender] = Deposit(amount, block.timestamp, false);
-            participants.push(msg.sender);
+            deposits[_msgSender()] = Deposit(amount, block.timestamp, false);
+            participants.push(_msgSender());
         }
     }
 
@@ -148,13 +163,13 @@ contract AuctionV2 is Ownable {
     }
 
     function buyerWithdraw() public whenLotteryNotActive {
-        require(!winners[msg.sender], "Winners cannot withdraw");
+        require(!winners[_msgSender()], "Winners cannot withdraw");
 
-        uint256 amount = deposits[msg.sender].amount;
+        uint256 amount = deposits[_msgSender()].amount;
         require(amount > 0, "No funds to withdraw");
 
-        deposits[msg.sender].amount = 0;
-        IERC20(usdcContractAddr).transfer(msg.sender, amount);
+        deposits[_msgSender()].amount = 0;
+        IERC20(usdcContractAddr).transfer(_msgSender(), amount);
     }
 
     function sellerWithdraw() public onlySeller() {
@@ -248,10 +263,10 @@ contract AuctionV2 is Ownable {
 
     function mintMyNFT() public hasNotMinted lotteryEnded {
         require(numberOfTickets > 0, "No tickets left to allocate");
-        require(isWinner(msg.sender), "Caller is not a winner");
+        require(isWinner(_msgSender()), "Caller is not a winner");
 
-        hasMinted[msg.sender] = true;
-        INFTLotteryTicket(nftContractAddr).lotteryMint(msg.sender);
+        hasMinted[_msgSender()] = true;
+        INFTLotteryTicket(nftContractAddr).lotteryMint(_msgSender());
         numberOfTickets--;
     }
 
@@ -268,7 +283,7 @@ contract AuctionV2 is Ownable {
     }
 
     function transferDeposit(address _participant, uint256 _amount) public {
-        require(auctionV1Addr == msg.sender, "Only whitelisted may call this function");
+        require(auctionV1Addr == _msgSender(), "Only whitelisted may call this function");
 
         if(isParticipant(_participant)) {
             deposits[_participant].amount += _amount;
