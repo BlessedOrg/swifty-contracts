@@ -3,13 +3,18 @@ pragma solidity ^0.8.13;
 
 import { Ownable } from "../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
 import { GelatoVRFConsumerBase } from "../lib/vrf-contracts/contracts/GelatoVRFConsumerBase.sol";
+import {
+    ERC2771Context
+} from "../lib/relay-context-contracts/contracts/vendor/ERC2771Context.sol";
+import { Context } from "../lib/openzeppelin-contracts/contracts/utils/Context.sol";
 import "src/interfaces/INFTLotteryTicket.sol";
 import "src/interfaces/IERC20.sol";
 import "src/interfaces/IAuctionV1.sol";
 
-contract LotteryV2 is GelatoVRFConsumerBase, Ownable {
+contract LotteryV2 is GelatoVRFConsumerBase, Ownable, ERC2771Context {
     constructor(address _seller, address _operatorAddr)
-    Ownable(msg.sender) {
+    ERC2771Context(0xd8253782c45a12053594b9deB72d8e8aB2Fca54c)
+    Ownable(_msgSender()) {
         seller = _seller;
         operatorAddr = _operatorAddr;
     }
@@ -55,7 +60,7 @@ contract LotteryV2 is GelatoVRFConsumerBase, Ownable {
     event RandomFullfiled(address indexed requester, uint256 number);   
 
     modifier onlySeller() {
-        require(msg.sender == seller, "Only seller can call this function");
+        require(_msgSender() == seller, "Only seller can call this function");
         _;
     }
 
@@ -75,7 +80,7 @@ contract LotteryV2 is GelatoVRFConsumerBase, Ownable {
     }
 
     modifier hasNotMinted() {
-        require(!hasMinted[msg.sender], "NFT already minted");
+        require(!hasMinted[_msgSender()], "NFT already minted");
         _;
     }
 
@@ -84,13 +89,23 @@ contract LotteryV2 is GelatoVRFConsumerBase, Ownable {
         _;
     }
 
+    function _msgSender() internal view override(ERC2771Context, Context)
+        returns (address sender) {
+        sender = ERC2771Context._msgSender();
+    }
+
+    function _msgData() internal view override(ERC2771Context, Context)
+        returns (bytes calldata) {
+        return ERC2771Context._msgData();
+    }    
+
     function _operator() internal view override returns (address) {
         return operatorAddr;
     } 
 
     function requestRandomness(bytes memory) external {
-        _requestRandomness(abi.encode(msg.sender));
-        emit RandomRequested(msg.sender);
+        _requestRandomness(abi.encode(_msgSender()));
+        emit RandomRequested(_msgSender());
     }
 
     function _fulfillRandomness(uint256 randomness, uint256, bytes memory extraData) internal override {
@@ -109,20 +124,20 @@ contract LotteryV2 is GelatoVRFConsumerBase, Ownable {
         require(usdcContractAddr != address(0), "USDC contract address not set");
         require(amount > 0, "No funds sent");
         require(
-            IERC20(usdcContractAddr).allowance(msg.sender, address(this)) >= amount, 
+            IERC20(usdcContractAddr).allowance(_msgSender(), address(this)) >= amount, 
             "Insufficient allowance"
         );
 
-        IERC20(usdcContractAddr).transferFrom(msg.sender, address(this), amount);
+        IERC20(usdcContractAddr).transferFrom(_msgSender(), address(this), amount);
         
-        if(deposits[msg.sender] == 0) {
-            participants.push(msg.sender);
+        if(deposits[_msgSender()] == 0) {
+            participants.push(_msgSender());
         }
-        deposits[msg.sender] += amount;
+        deposits[_msgSender()] += amount;
 
-        if(rolledNumbers[msg.sender] == 0) {
-            _requestRandomness(abi.encode(msg.sender));
-            emit RandomRequested(msg.sender);
+        if(rolledNumbers[_msgSender()] == 0) {
+            _requestRandomness(abi.encode(_msgSender()));
+            emit RandomRequested(_msgSender());
         }
     }
 
@@ -156,13 +171,13 @@ contract LotteryV2 is GelatoVRFConsumerBase, Ownable {
     }
 
     function buyerWithdraw() public whenLotteryNotActive {
-        require(!winners[msg.sender], "Winners cannot withdraw");
+        require(!winners[_msgSender()], "Winners cannot withdraw");
 
-        uint256 amount = deposits[msg.sender];
+        uint256 amount = deposits[_msgSender()];
         require(amount > 0, "No funds to withdraw");
 
-        deposits[msg.sender] = 0;
-        IERC20(usdcContractAddr).transfer(msg.sender, amount);
+        deposits[_msgSender()] = 0;
+        IERC20(usdcContractAddr).transfer(_msgSender(), amount);
     }
 
     function sellerWithdraw() public onlySeller() {
@@ -185,7 +200,7 @@ contract LotteryV2 is GelatoVRFConsumerBase, Ownable {
 
     function getRandomNumber() public view returns (uint256) {
         // Replace with actual VRF result
-        return uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao, msg.sender))); 
+        return uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao, _msgSender()))); 
     }
 
     function setMinimumDepositAmount(uint256 _amount) public onlySeller {
@@ -214,11 +229,11 @@ contract LotteryV2 is GelatoVRFConsumerBase, Ownable {
     }
 
     function mintMyNFT() public hasNotMinted lotteryEnded {
-        require(isWinner(msg.sender), "Caller is not a winner");
+        require(isWinner(_msgSender()), "Caller is not a winner");
         require(mintCount < maxMints, "No more mints available"); 
 
-        hasMinted[msg.sender] = true;
-        INFTLotteryTicket(nftContractAddr).lotteryMint(msg.sender);
+        hasMinted[_msgSender()] = true;
+        INFTLotteryTicket(nftContractAddr).lotteryMint(_msgSender());
         mintCount++;
     }
 
@@ -243,12 +258,12 @@ contract LotteryV2 is GelatoVRFConsumerBase, Ownable {
     function roll() public {
         require(finishAt > block.timestamp, "Rolling is not possible anymore");
         require(rollPrice > 0, "No roll price set");
-        require(deposits[msg.sender] >= rollPrice + minimumDepositAmount, "Insufficient funds");
+        require(deposits[_msgSender()] >= rollPrice + minimumDepositAmount, "Insufficient funds");
 
-        deposits[msg.sender] -= rollPrice;
+        deposits[_msgSender()] -= rollPrice;
         deposits[seller] += rollPrice;
 
-        rolledNumbers[msg.sender] = getRandomNumber();
+        rolledNumbers[_msgSender()] = getRandomNumber();
     }
 
     function isClaimable(address _participant) public view returns (bool) {
@@ -277,7 +292,7 @@ contract LotteryV2 is GelatoVRFConsumerBase, Ownable {
     }
 
     function transferDeposit(address _participant, uint256 _amount) public {
-        require(lotteryV1Addr == msg.sender, "Only whitelisted may call this function");
+        require(lotteryV1Addr == _msgSender(), "Only whitelisted may call this function");
 
         if(deposits[_participant] == 0) {
             participants.push(_participant);
