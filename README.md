@@ -70,10 +70,10 @@ Participants can deposit funds (USDC or other ERC20) to qualify for a lottery, w
 
 ## Contracts deployed to OP Celestia Raspberry
 - `NFTLotteryTicket.sol`: https://opcelestia-raspberry.gelatoscout.com/address/0x1E1719C267084AfC679115b1C033eD7E2405757D
-- `Lottery.sol`: https://opcelestia-raspberry.gelatoscout.com/address/0xB115cDc398C313A65a94E22076c7a5CDcb89c0F8
-- `LotteryV2.sol`: https://opcelestia-raspberry.gelatoscout.com/address/0x002184f14b1d3e4C767d6158f55D41A375D39088
-- `AuctionV1.sol`: https://opcelestia-raspberry.gelatoscout.com/address/0x5796F72fAD7733F783A802e8AC8ef24E60c5fd2E
-- `AuctionV2.sol`: https://opcelestia-raspberry.gelatoscout.com/address/0xBB1126594cB490540b28F6d2fFF220048fd07CA6
+- `Lottery.sol`: https://opcelestia-raspberry.gelatoscout.com/address/0x7B4247FEB47c2e791556290A7624Dd42a9aC17c0
+- `LotteryV2.sol`: https://opcelestia-raspberry.gelatoscout.com/address/0x0DC85298230d4b930FB17B1774c0F4c471F7af78
+- `AuctionV1.sol`: https://opcelestia-raspberry.gelatoscout.com/address/0xc84080c34a06Ad19BbD0adcD992aae80846b757b
+- `AuctionV2.sol`: https://opcelestia-raspberry.gelatoscout.com/address/0x37C7111Daea6F7276468de90D3308d72705cac84
 
 ## Testnet
 Connection details: 
@@ -92,31 +92,34 @@ forge create --rpc-url https://rpc.opcelestia-raspberry.gelato.digital \
 
 ```
 forge create --rpc-url https://rpc.opcelestia-raspberry.gelato.digital \
-   --constructor-args 0x727b6D0a1DD1cA8f3132B6Bc8E1Cfa0C04CAb806 \
+   --constructor-args 0x727b6D0a1DD1cA8f3132B6Bc8E1Cfa0C04CAb806 0xA3Abd4D05765d359F9DAB6905A1C08C1D2e3F4E2 \
    --private-key "{YOUR_PRIVATE_KEY}" \
    src/Lottery.sol:Lottery
 ```
 
 ```
 forge create --rpc-url https://rpc.opcelestia-raspberry.gelato.digital \
-    --constructor-args 0x727b6D0a1DD1cA8f3132B6Bc8E1Cfa0C04CAb806 \
+    --constructor-args 0x727b6D0a1DD1cA8f3132B6Bc8E1Cfa0C04CAb806 0xA3Abd4D05765d359F9DAB6905A1C08C1D2e3F4E2  \
    --private-key "{YOUR_PRIVATE_KEY}" \
     src/LotteryV2.sol:LotteryV2
 ```
 
 ```
 forge create --rpc-url https://rpc.opcelestia-raspberry.gelato.digital \
-   --constructor-args 0x727b6D0a1DD1cA8f3132B6Bc8E1Cfa0C04CAb806 \
+   --constructor-args 0x727b6D0a1DD1cA8f3132B6Bc8E1Cfa0C04CAb806 0xA3Abd4D05765d359F9DAB6905A1C08C1D2e3F4E2  \
    --private-key "{YOUR_PRIVATE_KEY}" \
    src/AuctionV1.sol:AuctionV1
 ```
 
 ```
 forge create --rpc-url https://rpc.opcelestia-raspberry.gelato.digital \
-   --constructor-args 0x727b6D0a1DD1cA8f3132B6Bc8E1Cfa0C04CAb806 \
+   --constructor-args 0x727b6D0a1DD1cA8f3132B6Bc8E1Cfa0C04CAb806 0xA3Abd4D05765d359F9DAB6905A1C08C1D2e3F4E2  \
    --private-key "{YOUR_PRIVATE_KEY}" \
    src/AuctionV2.sol:AuctionV2
 ```
+Make sure you have proper constructor arguments specified:
+- `0x727b6D0a1DD1cA8f3132B6Bc8E1Cfa0C04CAb806` replace with your seller address
+- `0xA3Abd4D05765d359F9DAB6905A1C08C1D2e3F4E2` replace with VRF sender address (get it in from your Gelato dashboard)
 
 ## How to verify contract code at testnet?
 ```
