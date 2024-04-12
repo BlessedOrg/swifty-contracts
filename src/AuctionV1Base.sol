@@ -10,14 +10,16 @@ import { Context } from "../lib/openzeppelin-contracts/contracts/utils/Context.s
 import "src/interfaces/INFTLotteryTicket.sol";
 import "src/interfaces/IERC20.sol";
 import "src/interfaces/ILotteryV2.sol";
+import "src/interfaces/IAuctionV2.sol";
 
-contract Lottery is GelatoVRFConsumerBase, Ownable, ERC2771Context {
-    constructor(address _seller, address _operatorAddr)
-    ERC2771Context(0xd8253782c45a12053594b9deB72d8e8aB2Fca54c)
-    Ownable(_msgSender()) {
-        seller = _seller;
-        operatorAddr = _operatorAddr;
-    }
+contract AuctionV1Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Context(0xd8253782c45a12053594b9deB72d8e8aB2Fca54c) {
+    function initialize(address _seller, address _operatorAddr, address _owner) public {
+      require(initialized == false, "Already initialized");
+
+      seller = _seller;
+      operatorAddr = _operatorAddr;
+      _transferOwnership(_owner);
+    }        
 
     enum LotteryState {
         NOT_STARTED,
@@ -26,26 +28,33 @@ contract Lottery is GelatoVRFConsumerBase, Ownable, ERC2771Context {
         VRF_REQUESTED,
         VRF_COMPLETED
     }
+    bool public initialized = false;
 
     LotteryState public lotteryState;
 
     address public multisigWalletAddress;
     address public seller;
-    address public immutable operatorAddr;
+    address public operatorAddr;
 
-    uint256 public minimumDepositAmount;
+    uint256 public currentPrice;
+    uint256 public initialPrice;
+    uint256 public prevRoundDeposits;
+    uint256 public prevRoundTicketsAmount;
+    uint256 public increasePriceStep;
     uint256 public numberOfTickets;
     uint256 public randomNumber;
-    address[] private eligibleParticipants;
+    address[] public eligibleParticipants;
     mapping(address => bool) public hasMinted;
 
     mapping(address => uint256) public deposits;
     mapping(address => bool) public winners;
+    mapping(address => bool) public operators;
     address[] public winnerAddresses;
     address[] private participants;
 
     address public nftContractAddr;
     address public usdcContractAddr;
+    address public lotteryV2Addr;
 
     uint256 public finishAt;
 
@@ -60,8 +69,14 @@ contract Lottery is GelatoVRFConsumerBase, Ownable, ERC2771Context {
         _;
     }
 
+    modifier onlyOperator() {
+        // operator = seller or owner or specified address
+        require(_msgSender() == seller || _msgSender() == owner() || operators[_msgSender()], "Only operator can call this function");
+        _;
+    }    
+
     modifier lotteryNotStarted() {
-        require(lotteryState == LotteryState.NOT_STARTED, "Lottery is in active state");
+        require(lotteryState == LotteryState.NOT_STARTED || lotteryState == LotteryState.ENDED, "Lottery is in active state");
         _;
     }
 
@@ -97,9 +112,10 @@ contract Lottery is GelatoVRFConsumerBase, Ownable, ERC2771Context {
 
     function _operator() internal view override returns (address) {
         return operatorAddr;
-    }
+    }    
 
-    function deposit(uint256 amount) public payable whenLotteryNotActive {
+    function deposit(uint256 amount) public payable {
+        require(!isWinner(_msgSender()), "Winners cannot deposit");
         require(finishAt > block.timestamp, "Deposits are not possible anymore");
         require(usdcContractAddr != address(0), "USDC contract address not set");
         require(amount > 0, "No funds sent");
@@ -114,6 +130,7 @@ contract Lottery is GelatoVRFConsumerBase, Ownable, ERC2771Context {
             participants.push(_msgSender());
         }
         deposits[_msgSender()] += amount;
+        prevRoundDeposits += 1;
     }
 
     function getParticipants() public view returns (address[] memory) {
@@ -123,6 +140,35 @@ contract Lottery is GelatoVRFConsumerBase, Ownable, ERC2771Context {
     function setMultisigWalletAddress(address _multisigWalletAddress) public onlyOwner {
         multisigWalletAddress = _multisigWalletAddress;
     }
+
+    function setOperator(address _operatorAddr, bool _flag) public onlyOwner {
+        operators[_operatorAddr] = _flag;
+    }     
+
+    function setPriceStep(uint256 _increasePriceStep) public onlySeller {
+        increasePriceStep = _increasePriceStep;
+    }   
+
+    function setupNewRound(uint256 _finishAt, uint256 _numberOfTickets) public onlyOperator {
+      uint256 newPrice = 0;
+
+      if(prevRoundDeposits >= numberOfTickets) {
+        // higher demand than supply, increase price
+        newPrice = currentPrice + increasePriceStep * (prevRoundDeposits / prevRoundTicketsAmount);
+      } else {
+        // lower demand than supply, decrease price
+        newPrice = currentPrice - increasePriceStep * (1 - prevRoundDeposits / prevRoundTicketsAmount);
+        if(newPrice < initialPrice) {
+          newPrice = initialPrice;
+        }
+      }
+
+      currentPrice = newPrice;
+      setFinishAt(_finishAt);
+      prevRoundDeposits = 0;
+      numberOfTickets = _numberOfTickets;
+      prevRoundTicketsAmount = _numberOfTickets;
+    }    
 
     function setNftContractAddr(address _nftContractAddr) public onlyOwner {
         nftContractAddr = _nftContractAddr;
@@ -173,7 +219,7 @@ contract Lottery is GelatoVRFConsumerBase, Ownable, ERC2771Context {
         IERC20(usdcContractAddr).transfer(seller, amountToSeller);
     }
 
-    function requestRandomness() external onlySeller {
+    function requestRandomness(bytes memory) external onlySeller {
         _requestRandomness(abi.encode(_msgSender()));
         emit RandomRequested(_msgSender());
     } 
@@ -181,12 +227,14 @@ contract Lottery is GelatoVRFConsumerBase, Ownable, ERC2771Context {
     function _fulfillRandomness(uint256 randomness, uint256, bytes memory) internal override {
         randomNumber = randomness;
         emit RandomFullfiled(randomness);
-    }    
+    }        
 
     function getRandomNumber () public view onlySeller returns (uint256) {
         // Replace with actual VRF result
         return uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao, _msgSender()))); 
     }
+
+
 
     function selectWinners() external onlySeller {
         require(numberOfTickets > 0, "No tickets left to allocate");
@@ -222,7 +270,6 @@ contract Lottery is GelatoVRFConsumerBase, Ownable, ERC2771Context {
                     setWinner(selectedWinner);
                     removeParticipant(i);
                     numberOfTickets--;
-
                     emit WinnerSelected(selectedWinner);
                 }
             }
@@ -233,13 +280,17 @@ contract Lottery is GelatoVRFConsumerBase, Ownable, ERC2771Context {
         }
     }
 
-    function setMinimumDepositAmount(uint256 _amount) public onlySeller {
-        minimumDepositAmount = _amount;
+    function setCurrentPrice(uint256 _amount) public onlySeller {
+      if(initialPrice == 0) {
+        initialPrice = _amount;
+      }
+      currentPrice = _amount;
     }
 
     function setNumberOfTickets(uint256 _numberOfTickets) public onlySeller {
         require(_numberOfTickets > 0, "Number of tickets must be greater than zero");
         numberOfTickets = _numberOfTickets;
+        prevRoundTicketsAmount = _numberOfTickets;
     }
 
     function startLottery() public onlySeller lotteryNotStarted {
@@ -259,11 +310,15 @@ contract Lottery is GelatoVRFConsumerBase, Ownable, ERC2771Context {
 
     // Function to check and mark eligible participants
     function checkEligibleParticipants() internal {
+        delete eligibleParticipants;
         for (uint256 i = 0; i < participants.length; i++) {
             uint256 depositedAmount = deposits[participants[i]];
-            if (depositedAmount >= minimumDepositAmount) {
+            if (depositedAmount >= currentPrice) {
                 // Mark this participant as eligible for the lottery
-                eligibleParticipants.push(participants[i]);
+                if (!isWinner(participants[i])) {
+                  eligibleParticipants.push(participants[i]);
+                }
+                
             }
         }
     }
@@ -299,16 +354,31 @@ contract Lottery is GelatoVRFConsumerBase, Ownable, ERC2771Context {
         usdcContractAddr = _usdcContractAddr;
     }
 
-    function setFinishAt(uint _finishAt) public onlySeller {
+    function setFinishAt(uint _finishAt) public onlyOperator() {
         finishAt = _finishAt;
     }
 
-    function transferNonWinnerDeposits(address lotteryV2addr) public onlySeller {
+    function setLotteryV2Addr(address _lotteryV2Addr) public onlySeller {
+        lotteryV2Addr = _lotteryV2Addr;
+    }    
+
+    function transferDeposit(address _participant, uint256 _amount) public {
+        require(lotteryV2Addr == _msgSender(), "Only whitelisted may call this function");
+
+        if(deposits[_msgSender()] == 0) {
+            participants.push(_participant);
+        }
+        deposits[_participant] += _amount;
+        prevRoundDeposits += 1;
+    }
+
+
+    function transferNonWinnerBids(address destinationAddr) public onlySeller {
         for(uint256 i = 0; i < participants.length; i++) {
             uint256 currentDeposit = deposits[participants[i]];
             deposits[participants[i]] = 0;
-            IERC20(usdcContractAddr).transfer(lotteryV2addr, currentDeposit);
-            ILotteryV2(lotteryV2addr).transferDeposit(participants[i], currentDeposit);
+            IERC20(usdcContractAddr).transfer(destinationAddr, currentDeposit);
+            IAuctionV2(destinationAddr).transferDeposit(participants[i], currentDeposit);
 
             if (i < participants.length - 1) {
                 participants[i] = participants[participants.length - 1];
