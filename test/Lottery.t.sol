@@ -34,7 +34,7 @@ contract LotteryTest is Test {
 
         vm.startPrank(seller);
         // Deploy the Deposit contract with the seller address
-                NFTTicketBase nftLotteryTicket = new NFTTicketBase();
+        NFTTicketBase nftLotteryTicket = new NFTTicketBase();
         LotteryBase lotteryBase = new LotteryBase();
         LotteryV2Base lotteryV2Base = new LotteryV2Base();
         AuctionV1Base auctionV1Base = new AuctionV1Base();
