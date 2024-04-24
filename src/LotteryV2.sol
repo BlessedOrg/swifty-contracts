@@ -3,9 +3,7 @@ pragma solidity ^0.8.13;
 
 import { Ownable } from "../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
 import { GelatoVRFConsumerBase } from "../lib/vrf-contracts/contracts/GelatoVRFConsumerBase.sol";
-import {
-    ERC2771Context
-} from "../lib/relay-context-contracts/contracts/vendor/ERC2771Context.sol";
+import { ERC2771Context } from "../lib/relay-context-contracts/contracts/vendor/ERC2771Context.sol";
 import { Context } from "../lib/openzeppelin-contracts/contracts/utils/Context.sol";
 import "src/interfaces/INFTLotteryTicket.sol";
 import "src/interfaces/IERC20.sol";
@@ -117,7 +115,18 @@ contract LotteryV2 is GelatoVRFConsumerBase, Ownable, ERC2771Context {
             rolledNumbers[requestedBy] = randomness;
         }
         emit RandomFullfiled(requestedBy, randomness);
-    }           
+    }
+
+    function setRandomNumber() public onlySeller() {
+        require(randomNumber == 0, "Random number already set");
+
+        randomNumber = getRandomNumber();
+    }
+
+    function getRandomNumber() public view returns (uint256) {
+        // it's used as a mockup for tests
+        return uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao, _msgSender())));
+    }
 
     function deposit(uint256 amount) public whenLotteryNotActive {
         require(finishAt > block.timestamp, "Deposits are not possible anymore");
@@ -236,12 +245,6 @@ contract LotteryV2 is GelatoVRFConsumerBase, Ownable, ERC2771Context {
         usdcContractAddr = _usdcContractAddr;
     }
 
-    function setRandomNumber() public onlySeller() {
-        require(randomNumber == 0, "Random number already set");
-
-        randomNumber = getRandomNumber();
-    }
-
     function setRollPrice(uint256 _rollPrice) public onlySeller() {
         rollPrice = _rollPrice;
     }
@@ -258,7 +261,7 @@ contract LotteryV2 is GelatoVRFConsumerBase, Ownable, ERC2771Context {
         deposits[_msgSender()] -= rollPrice;
         deposits[seller] += rollPrice;
 
-        rolledNumbers[_msgSender()] = getRandomNumber();
+        _requestRandomness(abi.encode(_msgSender()));
     }
 
     function isClaimable(address _participant) public view returns (bool) {
@@ -295,7 +298,7 @@ contract LotteryV2 is GelatoVRFConsumerBase, Ownable, ERC2771Context {
         deposits[_participant] += _amount;
 
         if(rolledNumbers[_participant] == 0) {
-            rolledNumbers[_participant] = getRandomNumber();
+            _requestRandomness(abi.encode(_participant));
         }
     }
 

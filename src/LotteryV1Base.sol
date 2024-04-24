@@ -3,21 +3,19 @@ pragma solidity ^0.8.13;
 
 import { Ownable } from "../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
 import { GelatoVRFConsumerBase } from "../lib/vrf-contracts/contracts/GelatoVRFConsumerBase.sol";
-import {
-    ERC2771Context
-} from "../lib/relay-context-contracts/contracts/vendor/ERC2771Context.sol";
+import { ERC2771Context } from "../lib/relay-context-contracts/contracts/vendor/ERC2771Context.sol";
 import { Context } from "../lib/openzeppelin-contracts/contracts/utils/Context.sol";
 import "src/interfaces/INFTLotteryTicket.sol";
 import "src/interfaces/IERC20.sol";
 import "src/interfaces/ILotteryV2.sol";
 
-contract LotteryBase is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Context(0xd8253782c45a12053594b9deB72d8e8aB2Fca54c) {
+contract LotteryV1Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Context(0xd8253782c45a12053594b9deB72d8e8aB2Fca54c) {
     function initialize(address _seller, address _operatorAddr, address _owner) public {
-      require(initialized == false, "Already initialized");
+        require(initialized == false, "Already initialized");
 
-      seller = _seller;
-      operatorAddr = _operatorAddr;
-      _transferOwnership(_owner);
+        seller = _seller;
+        operatorAddr = _operatorAddr;
+        _transferOwnership(_owner);
     }
 
     enum LotteryState {
@@ -183,11 +181,6 @@ contract LotteryBase is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Conte
     function _fulfillRandomness(uint256 randomness, uint256, bytes memory) internal override {
         randomNumber = randomness;
         emit RandomFullfiled(randomness);
-    }    
-
-    function getRandomNumber () public view onlySeller returns (uint256) {
-        // Replace with actual VRF result
-        return uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao, _msgSender()))); 
     }
 
     function selectWinners() external onlySeller {

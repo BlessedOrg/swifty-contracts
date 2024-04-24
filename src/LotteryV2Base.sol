@@ -3,9 +3,7 @@ pragma solidity ^0.8.13;
 
 import { Ownable } from "../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
 import { GelatoVRFConsumerBase } from "../lib/vrf-contracts/contracts/GelatoVRFConsumerBase.sol";
-import {
-    ERC2771Context
-} from "../lib/relay-context-contracts/contracts/vendor/ERC2771Context.sol";
+import { ERC2771Context } from "../lib/relay-context-contracts/contracts/vendor/ERC2771Context.sol";
 import { Context } from "../lib/openzeppelin-contracts/contracts/utils/Context.sol";
 import "src/interfaces/INFTLotteryTicket.sol";
 import "src/interfaces/IERC20.sol";
@@ -18,7 +16,7 @@ contract LotteryV2Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
       seller = _seller;
       operatorAddr = _operatorAddr;
       _transferOwnership(_owner);
-    }    
+    }
 
     enum LotteryState {
       NOT_STARTED,
@@ -60,7 +58,7 @@ contract LotteryV2Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
     event WinnerSelected(address indexed winner);
     event LotteryEnded();
     event RandomRequested(address indexed requester);
-    event RandomFullfiled(address indexed requester, uint256 number);   
+    event RandomFullfiled(address indexed requester, uint256 number);
 
     modifier onlySeller() {
         require(_msgSender() == seller, "Only seller can call this function");
@@ -100,39 +98,50 @@ contract LotteryV2Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
     function _msgData() internal view override(ERC2771Context, Context)
         returns (bytes calldata) {
         return ERC2771Context._msgData();
-    }    
+    }
 
     function _operator() internal view override returns (address) {
         return operatorAddr;
-    } 
+    }
 
-    function requestRandomness(bytes memory) external {
+    function setRandomNumber() public onlySeller() {
+        require(randomNumber == 0, "Random number already set");
+
+        randomNumber = getRandomNumber();
+    }
+
+    function getRandomNumber() public view returns (uint256) {
+        // it's used as a mockup for tests
+        return uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao, _msgSender())));
+    }
+
+    function requestRandomness() external {
         _requestRandomness(abi.encode(_msgSender()));
         emit RandomRequested(_msgSender());
     }
 
     function _fulfillRandomness(uint256 randomness, uint256, bytes memory extraData) internal override {
         address requestedBy = abi.decode(extraData, (address));
-        
+
         if(requestedBy == seller) {
-            rolledNumbers[requestedBy] = randomness;
-        } else {
             randomNumber = randomness;
+        } else {
+            rolledNumbers[requestedBy] = randomness;
         }
         emit RandomFullfiled(requestedBy, randomness);
-    }           
+    }
 
     function deposit(uint256 amount) public whenLotteryNotActive {
         require(finishAt > block.timestamp, "Deposits are not possible anymore");
         require(usdcContractAddr != address(0), "USDC contract address not set");
         require(amount > 0, "No funds sent");
         require(
-            IERC20(usdcContractAddr).allowance(_msgSender(), address(this)) >= amount, 
+            IERC20(usdcContractAddr).allowance(_msgSender(), address(this)) >= amount,
             "Insufficient allowance"
         );
 
         IERC20(usdcContractAddr).transferFrom(_msgSender(), address(this), amount);
-        
+
         if(deposits[_msgSender()] == 0) {
             participants.push(_msgSender());
         }
@@ -154,7 +163,7 @@ contract LotteryV2Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
 
     function setNftContractAddr(address _nftContractAddr) public onlyOwner {
         nftContractAddr = _nftContractAddr;
-    }    
+    }
 
     function changeLotteryState(LotteryState _newState) public onlySeller {
         lotteryState = _newState;
@@ -201,11 +210,6 @@ contract LotteryV2Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
         IERC20(usdcContractAddr).transfer(seller, amountToSeller);
     }
 
-    function getRandomNumber() public view returns (uint256) {
-        // Replace with actual VRF result
-        return uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao, _msgSender()))); 
-    }
-
     function setMinimumDepositAmount(uint256 _amount) public onlySeller {
         minimumDepositAmount = _amount;
     }
@@ -233,7 +237,7 @@ contract LotteryV2Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
 
     function mintMyNFT() public hasNotMinted lotteryEnded {
         require(isWinner(_msgSender()), "Caller is not a winner");
-        require(mintCount < maxMints, "No more mints available"); 
+        require(mintCount < maxMints, "No more mints available");
 
         hasMinted[_msgSender()] = true;
         INFTLotteryTicket(nftContractAddr).lotteryMint(_msgSender());
@@ -242,12 +246,6 @@ contract LotteryV2Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
 
     function setUsdcContractAddr(address _usdcContractAddr) public onlyOwner {
         usdcContractAddr = _usdcContractAddr;
-    }
-
-    function setRandomNumber() public onlySeller() {
-        require(randomNumber == 0, "Random number already set");
-
-        randomNumber = getRandomNumber();
     }
 
     function setRollPrice(uint256 _rollPrice) public onlySeller() {
@@ -266,7 +264,7 @@ contract LotteryV2Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
         deposits[_msgSender()] -= rollPrice;
         deposits[seller] += rollPrice;
 
-        rolledNumbers[_msgSender()] = getRandomNumber();
+        _requestRandomness(abi.encode(_msgSender()));
     }
 
     function isClaimable(address _participant) public view returns (bool) {
@@ -303,7 +301,7 @@ contract LotteryV2Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
         deposits[_participant] += _amount;
 
         if(rolledNumbers[_participant] == 0) {
-            rolledNumbers[_participant] = getRandomNumber();
+            _requestRandomness(abi.encode(_participant));
         }
     }
 
