@@ -103,7 +103,7 @@ contract LotteryV2 is GelatoVRFConsumerBase, Ownable, ERC2771Context {
         return operatorAddr;
     } 
 
-    function requestRandomness(bytes memory) external {
+    function requestRandomness() external {
         _requestRandomness(abi.encode(_msgSender()));
         emit RandomRequested(_msgSender());
     }
@@ -112,9 +112,9 @@ contract LotteryV2 is GelatoVRFConsumerBase, Ownable, ERC2771Context {
         address requestedBy = abi.decode(extraData, (address));
         
         if(requestedBy == seller) {
-            rolledNumbers[requestedBy] = randomness;
-        } else {
             randomNumber = randomness;
+        } else {
+            rolledNumbers[requestedBy] = randomness;
         }
         emit RandomFullfiled(requestedBy, randomness);
     }           
@@ -196,11 +196,6 @@ contract LotteryV2 is GelatoVRFConsumerBase, Ownable, ERC2771Context {
 
         IERC20(usdcContractAddr).transfer(multisigWalletAddress, protocolTax);
         IERC20(usdcContractAddr).transfer(seller, amountToSeller);
-    }
-
-    function getRandomNumber() public view returns (uint256) {
-        // Replace with actual VRF result
-        return uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao, _msgSender()))); 
     }
 
     function setMinimumDepositAmount(uint256 _amount) public onlySeller {
