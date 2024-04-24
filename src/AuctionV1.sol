@@ -217,7 +217,7 @@ contract AuctionV1 is GelatoVRFConsumerBase, Ownable, ERC2771Context {
         IERC20(usdcContractAddr).transfer(seller, amountToSeller);
     }
 
-    function requestRandomness() external onlySeller {
+    function requestRandomness(bytes memory) external onlySeller {
         _requestRandomness(abi.encode(_msgSender()));
         emit RandomRequested(_msgSender());
     } 
@@ -225,7 +225,14 @@ contract AuctionV1 is GelatoVRFConsumerBase, Ownable, ERC2771Context {
     function _fulfillRandomness(uint256 randomness, uint256, bytes memory) internal override {
         randomNumber = randomness;
         emit RandomFullfiled(randomness);
+    }        
+
+    function getRandomNumber () public view onlySeller returns (uint256) {
+        // Replace with actual VRF result
+        return uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao, _msgSender()))); 
     }
+
+
 
     function selectWinners() external onlySeller {
         require(numberOfTickets > 0, "No tickets left to allocate");
