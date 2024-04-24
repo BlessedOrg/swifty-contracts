@@ -9,13 +9,13 @@ import { USDC } from "../src/USDC.sol";
 
 import { NFTTicketBase } from "../src/NFTTicketBase.sol";
 import { BlessedFactory } from "../src/BlessedFactory.sol";
-import { LotteryBase } from "../src/LotteryBase.sol";
+import { LotteryV1Base } from "../src/LotteryV1Base.sol";
 import { LotteryV2Base } from "../src/LotteryV2Base.sol";
 import { AuctionV1Base } from "../src/AuctionV1Base.sol";
 import { AuctionV2Base } from "../src/AuctionV2Base.sol";
 
 contract LotteryTest is Test {
-    LotteryBase public lottery;
+    LotteryV1Base public lottery;
     BlessedFactory public blessedFactory;
     USDC public usdcToken;
 
@@ -35,7 +35,7 @@ contract LotteryTest is Test {
         vm.startPrank(seller);
         // Deploy the Deposit contract with the seller address
         NFTTicketBase nftLotteryTicket = new NFTTicketBase();
-        LotteryBase lotteryBase = new LotteryBase();
+        LotteryV1Base lotteryBase = new LotteryV1Base();
         LotteryV2Base lotteryV2Base = new LotteryV2Base();
         AuctionV1Base auctionV1Base = new AuctionV1Base();
         AuctionV2Base auctionV2Base = new AuctionV2Base();
@@ -51,7 +51,7 @@ contract LotteryTest is Test {
         blessedFactory.createSale(seller, operator, seller, "http://tokenuri.com/");
         address lotteryBaseAddr = blessedFactory.sales(0, 0);
 
-        lottery = LotteryBase(lotteryBaseAddr);
+        lottery = LotteryV1Base(lotteryBaseAddr);
 
         // Deploy the USDC token contract
         usdcToken = new USDC("USDC", "USDC", 6, 1000000000000000000000000, 1000000000000000000000000);
@@ -112,14 +112,14 @@ contract LotteryTest is Test {
 
     function test_ChangeLotteryState() public {
         vm.prank(seller);
-        lottery.changeLotteryState(LotteryBase.LotteryState.ACTIVE);
+        lottery.changeLotteryState(LotteryV1Base.LotteryState.ACTIVE);
         assertEq(
-            uint256(lottery.lotteryState()), uint256(LotteryBase.LotteryState.ACTIVE), "Lottery state should be ACTIVE"
+            uint256(lottery.lotteryState()), uint256(LotteryV1Base.LotteryState.ACTIVE), "Lottery state should be ACTIVE"
         );
 
         vm.prank(seller);
-        lottery.changeLotteryState(LotteryBase.LotteryState.ENDED);
-        assertEq(uint256(lottery.lotteryState()), uint256(LotteryBase.LotteryState.ENDED), "Lottery state should be ENDED");
+        lottery.changeLotteryState(LotteryV1Base.LotteryState.ENDED);
+        assertEq(uint256(lottery.lotteryState()), uint256(LotteryV1Base.LotteryState.ENDED), "Lottery state should be ENDED");
     }
 
     function test_NonWinnerWithdrawal() public {
@@ -134,7 +134,7 @@ contract LotteryTest is Test {
 
         // End the lottery
         vm.prank(seller);
-        lottery.changeLotteryState(LotteryBase.LotteryState.ENDED);
+        lottery.changeLotteryState(LotteryV1Base.LotteryState.ENDED);
 
         // Non-winner attempts to withdraw
         vm.startPrank(nonWinner);
@@ -181,7 +181,7 @@ contract LotteryTest is Test {
 
         // End the lottery and process the withdrawal
         vm.prank(seller);
-        lottery.changeLotteryState(LotteryBase.LotteryState.ENDED);
+        lottery.changeLotteryState(LotteryV1Base.LotteryState.ENDED);
         vm.prank(seller);
         lottery.sellerWithdraw();
 
@@ -204,7 +204,7 @@ contract LotteryTest is Test {
         vm.prank(seller);
         lottery.setWinner(winner);
         vm.prank(seller);
-        lottery.changeLotteryState(LotteryBase.LotteryState.ENDED);
+        lottery.changeLotteryState(LotteryV1Base.LotteryState.ENDED);
         vm.startPrank(winner);
         vm.expectRevert("Winners cannot withdraw");
         lottery.buyerWithdraw();
@@ -230,7 +230,7 @@ contract LotteryTest is Test {
 
         // End the lottery
         vm.prank(seller);
-        lottery.changeLotteryState(LotteryBase.LotteryState.ENDED);
+        lottery.changeLotteryState(LotteryV1Base.LotteryState.ENDED);
 
         // Mark some participants as winners (e.g., first two)
         for (uint256 i = 0; i < 2; i++) {
@@ -286,11 +286,11 @@ contract LotteryTest is Test {
 
         // Start the lottery
         vm.prank(seller);
-        lottery.changeLotteryState(LotteryBase.LotteryState.ACTIVE);
+        lottery.changeLotteryState(LotteryV1Base.LotteryState.ACTIVE);
 
         // End the lottery to allow withdrawal
         vm.prank(seller);
-        lottery.changeLotteryState(LotteryBase.LotteryState.ENDED);
+        lottery.changeLotteryState(LotteryV1Base.LotteryState.ENDED);
 
         // Case 2: Attempt to withdraw multiple times
         vm.startPrank(user);

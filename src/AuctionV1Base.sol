@@ -3,9 +3,7 @@ pragma solidity ^0.8.13;
 
 import { Ownable } from "../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
 import { GelatoVRFConsumerBase } from "../lib/vrf-contracts/contracts/GelatoVRFConsumerBase.sol";
-import {
-    ERC2771Context
-} from "../lib/relay-context-contracts/contracts/vendor/ERC2771Context.sol";
+import { ERC2771Context } from "../lib/relay-context-contracts/contracts/vendor/ERC2771Context.sol";
 import { Context } from "../lib/openzeppelin-contracts/contracts/utils/Context.sol";
 import "src/interfaces/INFTLotteryTicket.sol";
 import "src/interfaces/IERC20.sol";
@@ -229,12 +227,10 @@ contract AuctionV1Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
         emit RandomFullfiled(randomness);
     }        
 
-    function getRandomNumber () public view onlySeller returns (uint256) {
-        // Replace with actual VRF result
+    function getRandomNumber () public view returns (uint256) {
+        // it's used as a mockup for tests
         return uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao, _msgSender()))); 
     }
-
-
 
     function selectWinners() external onlySeller {
         require(numberOfTickets > 0, "No tickets left to allocate");

@@ -9,7 +9,7 @@ import { USDC } from "../src/USDC.sol";
 
 import { NFTTicketBase } from "../src/NFTTicketBase.sol";
 import { BlessedFactory } from "../src/BlessedFactory.sol";
-import { LotteryBase } from "../src/LotteryBase.sol";
+import {LotteryV1Base} from "../src/LotteryV1Base.sol";
 import { LotteryV2Base } from "../src/LotteryV2Base.sol";
 import { AuctionV1Base } from "../src/AuctionV1Base.sol";
 import { AuctionV2Base } from "../src/AuctionV2Base.sol";
@@ -33,7 +33,7 @@ contract AuctionV2Test is Test {
         vm.startPrank(seller);
         // Deploy the Deposit contract with the seller address
         NFTTicketBase nftLotteryTicket = new NFTTicketBase();
-        LotteryBase lotteryBase = new LotteryBase();
+        LotteryV1Base lotteryBase = new LotteryV1Base();
         LotteryV2Base lotteryV2Base = new LotteryV2Base();
         AuctionV1Base auctionV1Base = new AuctionV1Base();
         AuctionV2Base auctionV2Base = new AuctionV2Base();
