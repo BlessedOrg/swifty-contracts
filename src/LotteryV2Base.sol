@@ -9,34 +9,36 @@ import {
 import { Context } from "../lib/openzeppelin-contracts/contracts/utils/Context.sol";
 import "src/interfaces/INFTLotteryTicket.sol";
 import "src/interfaces/IERC20.sol";
-import "src/interfaces/ILotteryV2.sol";
+import "src/interfaces/IAuctionV1.sol";
 
-contract Lottery is GelatoVRFConsumerBase, Ownable, ERC2771Context {
-    constructor(address _seller, address _operatorAddr)
-    ERC2771Context(0xd8253782c45a12053594b9deB72d8e8aB2Fca54c)
-    Ownable(_msgSender()) {
-        seller = _seller;
-        operatorAddr = _operatorAddr;
-    }
+contract LotteryV2Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Context(0xd8253782c45a12053594b9deB72d8e8aB2Fca54c) {
+    function initialize(address _seller, address _operatorAddr, address _owner) public {
+      require(initialized == false, "Already initialized");
+
+      seller = _seller;
+      operatorAddr = _operatorAddr;
+      _transferOwnership(_owner);
+    }    
 
     enum LotteryState {
-        NOT_STARTED,
-        ACTIVE,
-        ENDED,
-        VRF_REQUESTED,
-        VRF_COMPLETED
+      NOT_STARTED,
+      ACTIVE,
+      ENDED
     }
+
+    bool public initialized = false;
 
     LotteryState public lotteryState;
 
     address public multisigWalletAddress;
     address public seller;
-    address public immutable operatorAddr;
+    address public operatorAddr;
 
     uint256 public minimumDepositAmount;
     uint256 public numberOfTickets;
+    uint256 public maxMints;
+    uint256 public mintCount;
     uint256 public randomNumber;
-    address[] private eligibleParticipants;
     mapping(address => bool) public hasMinted;
 
     mapping(address => uint256) public deposits;
@@ -46,14 +48,19 @@ contract Lottery is GelatoVRFConsumerBase, Ownable, ERC2771Context {
 
     address public nftContractAddr;
     address public usdcContractAddr;
+    address public lotteryV1Addr;
 
     uint256 public finishAt;
+
+    mapping(address => uint256) public rolledNumbers;
+    uint256 public rollPrice;
+    uint256 public rollTolerance = 0;
 
     event LotteryStarted();
     event WinnerSelected(address indexed winner);
     event LotteryEnded();
     event RandomRequested(address indexed requester);
-    event RandomFullfiled(uint256 number);
+    event RandomFullfiled(address indexed requester, uint256 number);   
 
     modifier onlySeller() {
         require(_msgSender() == seller, "Only seller can call this function");
@@ -97,9 +104,25 @@ contract Lottery is GelatoVRFConsumerBase, Ownable, ERC2771Context {
 
     function _operator() internal view override returns (address) {
         return operatorAddr;
+    } 
+
+    function requestRandomness(bytes memory) external {
+        _requestRandomness(abi.encode(_msgSender()));
+        emit RandomRequested(_msgSender());
     }
 
-    function deposit(uint256 amount) public payable whenLotteryNotActive {
+    function _fulfillRandomness(uint256 randomness, uint256, bytes memory extraData) internal override {
+        address requestedBy = abi.decode(extraData, (address));
+        
+        if(requestedBy == seller) {
+            rolledNumbers[requestedBy] = randomness;
+        } else {
+            randomNumber = randomness;
+        }
+        emit RandomFullfiled(requestedBy, randomness);
+    }           
+
+    function deposit(uint256 amount) public whenLotteryNotActive {
         require(finishAt > block.timestamp, "Deposits are not possible anymore");
         require(usdcContractAddr != address(0), "USDC contract address not set");
         require(amount > 0, "No funds sent");
@@ -114,6 +137,11 @@ contract Lottery is GelatoVRFConsumerBase, Ownable, ERC2771Context {
             participants.push(_msgSender());
         }
         deposits[_msgSender()] += amount;
+
+        if(rolledNumbers[_msgSender()] == 0) {
+            _requestRandomness(abi.encode(_msgSender()));
+            emit RandomRequested(_msgSender());
+        }
     }
 
     function getParticipants() public view returns (address[] memory) {
@@ -173,64 +201,9 @@ contract Lottery is GelatoVRFConsumerBase, Ownable, ERC2771Context {
         IERC20(usdcContractAddr).transfer(seller, amountToSeller);
     }
 
-    function requestRandomness() external onlySeller {
-        _requestRandomness(abi.encode(_msgSender()));
-        emit RandomRequested(_msgSender());
-    } 
-
-    function _fulfillRandomness(uint256 randomness, uint256, bytes memory) internal override {
-        randomNumber = randomness;
-        emit RandomFullfiled(randomness);
-    }    
-
-    function getRandomNumber () public view onlySeller returns (uint256) {
+    function getRandomNumber() public view returns (uint256) {
         // Replace with actual VRF result
         return uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao, _msgSender()))); 
-    }
-
-    function selectWinners() external onlySeller {
-        require(numberOfTickets > 0, "No tickets left to allocate");
-
-        if(numberOfTickets >= eligibleParticipants.length) {
-            // less demand than supply, no need for lottery. Everybody wins!
-            for (uint256 i = 0; i < eligibleParticipants.length; i++) {
-                address selectedWinner = eligibleParticipants[i];
-
-                if (!isWinner(selectedWinner)) {
-                    setWinner(selectedWinner);
-                    emit WinnerSelected(selectedWinner);
-                }
-            }
-            for (uint256 i = 0; i < eligibleParticipants.length; i++) {
-                removeParticipant(i);
-                numberOfTickets--;
-            }
-        } else {
-            // shuffle array of winners
-            for (uint j = 0; j < eligibleParticipants.length; j++) {
-                uint n = j + randomNumber % (eligibleParticipants.length - j);
-                address temp = eligibleParticipants[n];
-                eligibleParticipants[n] = eligibleParticipants[j];
-                eligibleParticipants[j] = temp;
-            }
-
-            // take the first n winners
-            for (uint256 i = 0; i < numberOfTickets; i++) {
-                address selectedWinner = eligibleParticipants[i];
-
-                if (!isWinner(selectedWinner)) {
-                    setWinner(selectedWinner);
-                    removeParticipant(i);
-                    numberOfTickets--;
-
-                    emit WinnerSelected(selectedWinner);
-                }
-            }
-        }
-
-        if (numberOfTickets == 0) {
-            emit LotteryEnded();
-        }
     }
 
     function setMinimumDepositAmount(uint256 _amount) public onlySeller {
@@ -240,11 +213,12 @@ contract Lottery is GelatoVRFConsumerBase, Ownable, ERC2771Context {
     function setNumberOfTickets(uint256 _numberOfTickets) public onlySeller {
         require(_numberOfTickets > 0, "Number of tickets must be greater than zero");
         numberOfTickets = _numberOfTickets;
+        maxMints = _numberOfTickets;
+        mintCount = 0;
     }
 
     function startLottery() public onlySeller lotteryNotStarted {
         changeLotteryState(LotteryState.ACTIVE);
-        checkEligibleParticipants();
     }
 
     function endLottery() public onlySeller {
@@ -257,63 +231,90 @@ contract Lottery is GelatoVRFConsumerBase, Ownable, ERC2771Context {
         return deposits[participant];
     }
 
-    // Function to check and mark eligible participants
-    function checkEligibleParticipants() internal {
-        for (uint256 i = 0; i < participants.length; i++) {
-            uint256 depositedAmount = deposits[participants[i]];
-            if (depositedAmount >= minimumDepositAmount) {
-                // Mark this participant as eligible for the lottery
-                eligibleParticipants.push(participants[i]);
-            }
-        }
-    }
-
-    function removeParticipant(uint256 index) internal {
-        require(index < eligibleParticipants.length, "Index out of bounds");
-
-        // If the winner is not the last element, swap it with the last element
-        if (index < eligibleParticipants.length - 1) {
-            eligibleParticipants[index] = eligibleParticipants[eligibleParticipants.length - 1];
-        }
-
-        // Remove the last element (now the winner)
-        eligibleParticipants.pop();
-    }
-
-    function isParticipantEligible(address participant) public view returns (bool) {
-        for (uint256 i = 0; i < eligibleParticipants.length; i++) {
-            if (eligibleParticipants[i] == participant) {
-                return true;
-            }
-        }
-        return false;
-    }
-
     function mintMyNFT() public hasNotMinted lotteryEnded {
         require(isWinner(_msgSender()), "Caller is not a winner");
+        require(mintCount < maxMints, "No more mints available"); 
+
         hasMinted[_msgSender()] = true;
         INFTLotteryTicket(nftContractAddr).lotteryMint(_msgSender());
+        mintCount++;
     }
 
     function setUsdcContractAddr(address _usdcContractAddr) public onlyOwner {
         usdcContractAddr = _usdcContractAddr;
     }
 
+    function setRandomNumber() public onlySeller() {
+        require(randomNumber == 0, "Random number already set");
+
+        randomNumber = getRandomNumber();
+    }
+
+    function setRollPrice(uint256 _rollPrice) public onlySeller() {
+        rollPrice = _rollPrice;
+    }
+
+    function setRollTolerance(uint256 _tolerance) public onlySeller() {
+        rollTolerance = _tolerance;
+    }
+
+    function roll() public {
+        require(finishAt > block.timestamp, "Rolling is not possible anymore");
+        require(rollPrice > 0, "No roll price set");
+        require(deposits[_msgSender()] >= rollPrice + minimumDepositAmount, "Insufficient funds");
+
+        deposits[_msgSender()] -= rollPrice;
+        deposits[seller] += rollPrice;
+
+        rolledNumbers[_msgSender()] = getRandomNumber();
+    }
+
+    function isClaimable(address _participant) public view returns (bool) {
+      if(deposits[_participant] >= minimumDepositAmount && randomNumber + rollTolerance >= rolledNumbers[_participant] && randomNumber - rollTolerance <= rolledNumbers[_participant]) {
+        return true;
+      }
+      return false;
+    }
+
+    function claimNumber(address _participant) public {
+      if(isClaimable(_participant)) {
+        winners[_participant] = true;
+        winnerAddresses.push(_participant);
+        emit WinnerSelected(_participant);
+      } else {
+        revert("Participant is not claimable");
+      }
+    }
+
+    function setLotteryV1Addr(address _lotteryV1Addr) public onlySeller {
+        lotteryV1Addr = _lotteryV1Addr;
+    }
+
     function setFinishAt(uint _finishAt) public onlySeller {
         finishAt = _finishAt;
     }
 
-    function transferNonWinnerDeposits(address lotteryV2addr) public onlySeller {
-        for(uint256 i = 0; i < participants.length; i++) {
-            uint256 currentDeposit = deposits[participants[i]];
-            deposits[participants[i]] = 0;
-            IERC20(usdcContractAddr).transfer(lotteryV2addr, currentDeposit);
-            ILotteryV2(lotteryV2addr).transferDeposit(participants[i], currentDeposit);
+    function transferDeposit(address _participant, uint256 _amount) public {
+        require(lotteryV1Addr == _msgSender(), "Only whitelisted may call this function");
 
-            if (i < participants.length - 1) {
-                participants[i] = participants[participants.length - 1];
+        if(deposits[_participant] == 0) {
+            participants.push(_participant);
+        }
+        deposits[_participant] += _amount;
+
+        if(rolledNumbers[_participant] == 0) {
+            rolledNumbers[_participant] = getRandomNumber();
+        }
+    }
+
+    function transferNonWinnerDeposits(address auctionV1addr) public onlySeller {
+        for(uint256 i = 0; i < participants.length; i++) {
+            if(!isWinner(participants[i])) {
+              uint256 currentDeposit = deposits[participants[i]];
+              deposits[participants[i]] = 0;
+              IERC20(usdcContractAddr).transfer(auctionV1addr, currentDeposit);
+              IAuctionV1(auctionV1addr).transferDeposit(participants[i], currentDeposit);
             }
-            participants.pop();
         }
     }
 }

@@ -125,6 +125,16 @@ Make sure you have proper constructor arguments specified:
 ```
 forge verify-contract {CONTRACT_ADDR} NFTLotteryTicket --verifier blockscout --verifier-url https://opcelestia-raspberry.gelatoscout.com/api --chain 123420111 --constructor-args $(cast abi-encode "constructor(string,bool)" "https://example.com/" true)
 ```
+## How to verify if `forge verify-contract` doesn't work? 
+When script is not working for some reason, the best option is to try use flattened code technique. 
+
+All you need to do is: 
+- flatten contract code using `forge flatten --output ./src/{ContractName}.flattened.sol ./src/{ContractName}.sol`
+- go to the explorer, type address, click Contract => Verify 
+- select single file code mode 
+- paste flattened contract code 
+- specify compiler version to 0.8.23
+- specify evm version to `paris`
 
 ## Run unit tests locally
 ```

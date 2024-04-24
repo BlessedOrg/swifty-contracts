@@ -2,7 +2,6 @@
 pragma solidity ^0.8.13;
 
 import { Ownable } from "../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
-import { GelatoVRFConsumerBase } from "../lib/vrf-contracts/contracts/GelatoVRFConsumerBase.sol";
 import {
     ERC2771Context
 } from "../lib/relay-context-contracts/contracts/vendor/ERC2771Context.sol";
@@ -11,13 +10,13 @@ import "src/interfaces/INFTLotteryTicket.sol";
 import "src/interfaces/IERC20.sol";
 import "src/interfaces/ILotteryV2.sol";
 
-contract Lottery is GelatoVRFConsumerBase, Ownable, ERC2771Context {
-    constructor(address _seller, address _operatorAddr)
-    ERC2771Context(0xd8253782c45a12053594b9deB72d8e8aB2Fca54c)
-    Ownable(_msgSender()) {
-        seller = _seller;
-        operatorAddr = _operatorAddr;
-    }
+contract AuctionV2Base is Ownable(msg.sender), ERC2771Context(0xd8253782c45a12053594b9deB72d8e8aB2Fca54c) {
+    function initialize(address _seller, address _owner) public {
+      require(initialized == false, "Already initialized");
+
+      seller = _seller;
+      _transferOwnership(_owner);
+    }  
 
     enum LotteryState {
         NOT_STARTED,
@@ -27,41 +26,52 @@ contract Lottery is GelatoVRFConsumerBase, Ownable, ERC2771Context {
         VRF_COMPLETED
     }
 
+    struct Deposit {
+      uint256 amount;
+      uint256 timestamp;
+      bool isWinner;
+    }
+
+    bool public initialized = false;
+
     LotteryState public lotteryState;
 
     address public multisigWalletAddress;
     address public seller;
-    address public immutable operatorAddr;
 
-    uint256 public minimumDepositAmount;
+    uint256 public initialPrice;
     uint256 public numberOfTickets;
-    uint256 public randomNumber;
-    address[] private eligibleParticipants;
     mapping(address => bool) public hasMinted;
 
-    mapping(address => uint256) public deposits;
+    mapping(address => Deposit) public deposits;
     mapping(address => bool) public winners;
+    mapping(address => bool) public operators;
     address[] public winnerAddresses;
-    address[] private participants;
+    address[] public participants;
 
     address public nftContractAddr;
     address public usdcContractAddr;
+    address public auctionV1Addr;
 
     uint256 public finishAt;
 
     event LotteryStarted();
     event WinnerSelected(address indexed winner);
     event LotteryEnded();
-    event RandomRequested(address indexed requester);
-    event RandomFullfiled(uint256 number);
 
     modifier onlySeller() {
         require(_msgSender() == seller, "Only seller can call this function");
         _;
     }
 
+    modifier onlyOperator() {
+        // operator = seller or owner or specified address
+        require(_msgSender() == seller || _msgSender() == owner() || operators[_msgSender()], "Only operator can call this function");
+        _;
+    }    
+
     modifier lotteryNotStarted() {
-        require(lotteryState == LotteryState.NOT_STARTED, "Lottery is in active state");
+        require(lotteryState == LotteryState.NOT_STARTED || lotteryState == LotteryState.ENDED, "Lottery is in active state");
         _;
     }
 
@@ -95,13 +105,20 @@ contract Lottery is GelatoVRFConsumerBase, Ownable, ERC2771Context {
         return ERC2771Context._msgData();
     }    
 
-    function _operator() internal view override returns (address) {
-        return operatorAddr;
-    }
+    function isParticipant(address _participant) public view returns (bool) {
+        for (uint i = 0; i < participants.length; i++) {
+            if (participants[i] == _participant) {
+                return true;
+            }
+        }
+        return false;
+    }    
 
-    function deposit(uint256 amount) public payable whenLotteryNotActive {
+    function deposit(uint256 amount) public payable {
+        require(!isWinner(_msgSender()), "Winners cannot deposit");
         require(finishAt > block.timestamp, "Deposits are not possible anymore");
         require(usdcContractAddr != address(0), "USDC contract address not set");
+        require(amount >= initialPrice, "Insufficient funds sent");
         require(amount > 0, "No funds sent");
         require(
             IERC20(usdcContractAddr).allowance(_msgSender(), address(this)) >= amount, 
@@ -110,19 +127,21 @@ contract Lottery is GelatoVRFConsumerBase, Ownable, ERC2771Context {
 
         IERC20(usdcContractAddr).transferFrom(_msgSender(), address(this), amount);
         
-        if(deposits[_msgSender()] == 0) {
+        if(isParticipant(_msgSender())) {
+            deposits[_msgSender()].amount += amount;
+        } else {
+            deposits[_msgSender()] = Deposit(amount, block.timestamp, false);
             participants.push(_msgSender());
         }
-        deposits[_msgSender()] += amount;
-    }
-
-    function getParticipants() public view returns (address[] memory) {
-        return participants;
     }
 
     function setMultisigWalletAddress(address _multisigWalletAddress) public onlyOwner {
         multisigWalletAddress = _multisigWalletAddress;
     }
+
+    function setOperator(address _operator, bool _flag) public onlyOwner {
+        operators[_operator] = _flag;
+    }      
 
     function setNftContractAddr(address _nftContractAddr) public onlyOwner {
         nftContractAddr = _nftContractAddr;
@@ -143,15 +162,16 @@ contract Lottery is GelatoVRFConsumerBase, Ownable, ERC2771Context {
     function setWinner(address _winner) public onlySeller {
         winners[_winner] = true;
         winnerAddresses.push(_winner);
+        deposits[_winner].isWinner = true;
     }
 
     function buyerWithdraw() public whenLotteryNotActive {
         require(!winners[_msgSender()], "Winners cannot withdraw");
 
-        uint256 amount = deposits[_msgSender()];
+        uint256 amount = deposits[_msgSender()].amount;
         require(amount > 0, "No funds to withdraw");
 
-        deposits[_msgSender()] = 0;
+        deposits[_msgSender()].amount = 0;
         IERC20(usdcContractAddr).transfer(_msgSender(), amount);
     }
 
@@ -162,8 +182,8 @@ contract Lottery is GelatoVRFConsumerBase, Ownable, ERC2771Context {
 
         for (uint256 i = 0; i < winnerAddresses.length; i++) {
             address winner = winnerAddresses[i];
-            totalAmount += deposits[winner];
-            deposits[winner] = 0; // Prevent double withdrawal
+            totalAmount += deposits[winner].amount;
+            deposits[winner].amount = 0; // Prevent double withdrawal
         }
 
         uint256 protocolTax = (totalAmount * 5) / 100; // 5% tax
@@ -173,68 +193,56 @@ contract Lottery is GelatoVRFConsumerBase, Ownable, ERC2771Context {
         IERC20(usdcContractAddr).transfer(seller, amountToSeller);
     }
 
-    function requestRandomness() external onlySeller {
-        _requestRandomness(abi.encode(_msgSender()));
-        emit RandomRequested(_msgSender());
-    } 
-
-    function _fulfillRandomness(uint256 randomness, uint256, bytes memory) internal override {
-        randomNumber = randomness;
-        emit RandomFullfiled(randomness);
-    }    
-
-    function getRandomNumber () public view onlySeller returns (uint256) {
-        // Replace with actual VRF result
-        return uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao, _msgSender()))); 
+    // sort participants by deposit amount DESC
+    function sortDepositsDesc() public onlySeller {
+      for (uint256 i = 0; i < participants.length; i++) {
+        for (uint256 j = i + 1; j < participants.length; j++) {
+          if (deposits[participants[i]].amount < deposits[participants[j]].amount) {
+            address temp = participants[i];
+            participants[i] = participants[j];
+            participants[j] = temp;
+          }
+        }
+      }
     }
 
     function selectWinners() external onlySeller {
         require(numberOfTickets > 0, "No tickets left to allocate");
 
-        if(numberOfTickets >= eligibleParticipants.length) {
+        if(numberOfTickets >= participants.length) {
             // less demand than supply, no need for lottery. Everybody wins!
-            for (uint256 i = 0; i < eligibleParticipants.length; i++) {
-                address selectedWinner = eligibleParticipants[i];
+            for (uint256 i = 0; i < participants.length; i++) {
+                address selectedWinner = participants[i];
 
                 if (!isWinner(selectedWinner)) {
                     setWinner(selectedWinner);
                     emit WinnerSelected(selectedWinner);
                 }
-            }
-            for (uint256 i = 0; i < eligibleParticipants.length; i++) {
-                removeParticipant(i);
-                numberOfTickets--;
             }
         } else {
-            // shuffle array of winners
-            for (uint j = 0; j < eligibleParticipants.length; j++) {
-                uint n = j + randomNumber % (eligibleParticipants.length - j);
-                address temp = eligibleParticipants[n];
-                eligibleParticipants[n] = eligibleParticipants[j];
-                eligibleParticipants[j] = temp;
-            }
+            sortDepositsDesc();
+
+            uint256 lowestWinDeposit = deposits[participants[numberOfTickets - 1]].amount;
 
             // take the first n winners
-            for (uint256 i = 0; i < numberOfTickets; i++) {
-                address selectedWinner = eligibleParticipants[i];
+            for (uint256 i = 0; i < participants.length; i++) {
+                if(deposits[participants[i]].amount >= lowestWinDeposit) {
+                  address selectedWinner = participants[i];
 
-                if (!isWinner(selectedWinner)) {
-                    setWinner(selectedWinner);
-                    removeParticipant(i);
-                    numberOfTickets--;
-
-                    emit WinnerSelected(selectedWinner);
+                  if (!isWinner(selectedWinner)) {
+                      setWinner(selectedWinner);
+                      emit WinnerSelected(selectedWinner);
+                  }
                 }
             }
         }
-
-        if (numberOfTickets == 0) {
-            emit LotteryEnded();
-        }
+        emit LotteryEnded();
     }
 
-    function setMinimumDepositAmount(uint256 _amount) public onlySeller {
-        minimumDepositAmount = _amount;
+    function setInitPrice(uint256 _amount) public onlySeller {
+      if(initialPrice == 0) {
+        initialPrice = _amount;
+      }
     }
 
     function setNumberOfTickets(uint256 _numberOfTickets) public onlySeller {
@@ -244,7 +252,6 @@ contract Lottery is GelatoVRFConsumerBase, Ownable, ERC2771Context {
 
     function startLottery() public onlySeller lotteryNotStarted {
         changeLotteryState(LotteryState.ACTIVE);
-        checkEligibleParticipants();
     }
 
     function endLottery() public onlySeller {
@@ -254,66 +261,38 @@ contract Lottery is GelatoVRFConsumerBase, Ownable, ERC2771Context {
     }
 
     function getDepositedAmount(address participant) external view returns (uint256) {
-        return deposits[participant];
-    }
-
-    // Function to check and mark eligible participants
-    function checkEligibleParticipants() internal {
-        for (uint256 i = 0; i < participants.length; i++) {
-            uint256 depositedAmount = deposits[participants[i]];
-            if (depositedAmount >= minimumDepositAmount) {
-                // Mark this participant as eligible for the lottery
-                eligibleParticipants.push(participants[i]);
-            }
-        }
-    }
-
-    function removeParticipant(uint256 index) internal {
-        require(index < eligibleParticipants.length, "Index out of bounds");
-
-        // If the winner is not the last element, swap it with the last element
-        if (index < eligibleParticipants.length - 1) {
-            eligibleParticipants[index] = eligibleParticipants[eligibleParticipants.length - 1];
-        }
-
-        // Remove the last element (now the winner)
-        eligibleParticipants.pop();
-    }
-
-    function isParticipantEligible(address participant) public view returns (bool) {
-        for (uint256 i = 0; i < eligibleParticipants.length; i++) {
-            if (eligibleParticipants[i] == participant) {
-                return true;
-            }
-        }
-        return false;
+        return deposits[participant].amount;
     }
 
     function mintMyNFT() public hasNotMinted lotteryEnded {
+        require(numberOfTickets > 0, "No tickets left to allocate");
         require(isWinner(_msgSender()), "Caller is not a winner");
+
         hasMinted[_msgSender()] = true;
         INFTLotteryTicket(nftContractAddr).lotteryMint(_msgSender());
+        numberOfTickets--;
     }
 
     function setUsdcContractAddr(address _usdcContractAddr) public onlyOwner {
         usdcContractAddr = _usdcContractAddr;
     }
 
-    function setFinishAt(uint _finishAt) public onlySeller {
+    function setFinishAt(uint _finishAt) public onlyOperator() {
         finishAt = _finishAt;
     }
 
-    function transferNonWinnerDeposits(address lotteryV2addr) public onlySeller {
-        for(uint256 i = 0; i < participants.length; i++) {
-            uint256 currentDeposit = deposits[participants[i]];
-            deposits[participants[i]] = 0;
-            IERC20(usdcContractAddr).transfer(lotteryV2addr, currentDeposit);
-            ILotteryV2(lotteryV2addr).transferDeposit(participants[i], currentDeposit);
-
-            if (i < participants.length - 1) {
-                participants[i] = participants[participants.length - 1];
-            }
-            participants.pop();
-        }
+    function setAuctionV1Addr(address _auctionV1Addr) public onlyOperator() {
+        auctionV1Addr = _auctionV1Addr;
     }
+
+    function transferDeposit(address _participant, uint256 _amount) public {
+        require(auctionV1Addr == _msgSender(), "Only whitelisted may call this function");
+
+        if(isParticipant(_participant)) {
+            deposits[_participant].amount += _amount;
+        } else {
+            deposits[_participant] = Deposit(_amount, block.timestamp, false);
+            participants.push(_participant);
+        }
+    }    
 }

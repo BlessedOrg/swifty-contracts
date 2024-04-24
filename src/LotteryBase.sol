@@ -11,12 +11,13 @@ import "src/interfaces/INFTLotteryTicket.sol";
 import "src/interfaces/IERC20.sol";
 import "src/interfaces/ILotteryV2.sol";
 
-contract Lottery is GelatoVRFConsumerBase, Ownable, ERC2771Context {
-    constructor(address _seller, address _operatorAddr)
-    ERC2771Context(0xd8253782c45a12053594b9deB72d8e8aB2Fca54c)
-    Ownable(_msgSender()) {
-        seller = _seller;
-        operatorAddr = _operatorAddr;
+contract LotteryBase is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Context(0xd8253782c45a12053594b9deB72d8e8aB2Fca54c) {
+    function initialize(address _seller, address _operatorAddr, address _owner) public {
+      require(initialized == false, "Already initialized");
+
+      seller = _seller;
+      operatorAddr = _operatorAddr;
+      _transferOwnership(_owner);
     }
 
     enum LotteryState {
@@ -26,12 +27,13 @@ contract Lottery is GelatoVRFConsumerBase, Ownable, ERC2771Context {
         VRF_REQUESTED,
         VRF_COMPLETED
     }
+    bool public initialized = false;
 
     LotteryState public lotteryState;
 
     address public multisigWalletAddress;
     address public seller;
-    address public immutable operatorAddr;
+    address public operatorAddr;
 
     uint256 public minimumDepositAmount;
     uint256 public numberOfTickets;
