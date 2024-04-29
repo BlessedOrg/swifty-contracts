@@ -6,86 +6,140 @@ import { Clones } from "../lib/openzeppelin-contracts/contracts/proxy/Clones.sol
 import { INFTLotteryTicket } from "./interfaces/INFTLotteryTicket.sol";
 import { ILotteryBase } from "./interfaces/ILotteryBase.sol";
 import { IAuctionBase } from "./interfaces/IAuctionBase.sol";
+import { StructsLibrary } from "./vendor/StructsLibrary.sol";
 
 contract BlessedFactory is Ownable(msg.sender) {
-  address nftTicket;
-  address lotteryV1;
-  address lotteryV2;
-  address auctionV1;
-  address auctionV2;
+    address public nftTicket;
+    address public lotteryV1;
+    address public lotteryV2;
+    address public auctionV1;
+    address public auctionV2;
 
-  uint256 public currentIndex;
+    uint256 public currentIndex;
 
-  mapping(uint256 => address[4]) public sales;
+    mapping(uint256 => address[4]) public sales;
 
-  function setBaseContracts(
-    address _nftTicket, 
-    address _lotteryV1,
-    address _lotteryV2,
-    address _auctionV1,
-    address _auctionV2
-  ) external onlyOwner {
-    nftTicket = _nftTicket;
-    lotteryV1 = _lotteryV1;
-    lotteryV2 = _lotteryV2;
-    auctionV1 = _auctionV1;
-    auctionV2 = _auctionV2;
-  }
+    function setBaseContracts(
+        address _nftTicket,
+        address _lotteryV1,
+        address _lotteryV2,
+        address _auctionV1,
+        address _auctionV2
+    ) external onlyOwner {
+        nftTicket = _nftTicket;
+        lotteryV1 = _lotteryV1;
+        lotteryV2 = _lotteryV2;
+        auctionV1 = _auctionV1;
+        auctionV2 = _auctionV2;
+    }
 
-  function createSale(address _seller, address _operator, address _owner, string calldata _uri) external returns(address[4] memory) {
-    // deploy NFT contracts per each sale option
-    address nftLotteryV1 = Clones.clone(nftTicket);
-    INFTLotteryTicket(nftLotteryV1).initialize(_uri, false, address(this));
-    address nftLotteryV2 = Clones.clone(nftTicket);
-    INFTLotteryTicket(nftLotteryV2).initialize(_uri, false, address(this));
-    address nftAuctionV1 = Clones.clone(nftTicket);
-    INFTLotteryTicket(nftAuctionV1).initialize(_uri, true, address(this));
-    address nftAuctionV2 = Clones.clone(nftTicket);
-    INFTLotteryTicket(nftAuctionV2).initialize(_uri, true, address(this));
+    struct SaleConfig {
+        address _seller;
+        address _operator;
+        address _owner;
+        uint256 _lotteryV1TicketAmount;
+        uint256 _lotteryV2TicketAmount;
+        uint256 _auctionV1TicketAmount;
+        uint256 _auctionV2TicketAmount;
+        uint256 _ticketPrice;
+        uint256 _finishAt;
+        string _uri;
+        address _usdcContractAddr;
+        address _multisigWalletAddress;
+    }
 
-    // Deploy LotteryV1 and link NFT
-    address lotteryV1Clone = Clones.clone(lotteryV1);
-    ILotteryBase(lotteryV1Clone).initialize(_seller, _operator, address(this));
-    INFTLotteryTicket(nftLotteryV1).setDepositContractAddr(lotteryV1Clone);
-    ILotteryBase(lotteryV1Clone).setNftContractAddr(nftLotteryV1);
+    function createSale(SaleConfig memory config) external {
+        // deploy NFT contracts per each sale option
+        address nftLotteryV1 = Clones.clone(nftTicket);
+        INFTLotteryTicket(nftLotteryV1).initialize(config._uri, false, address(this));
+        address nftLotteryV2 = Clones.clone(nftTicket);
+        INFTLotteryTicket(nftLotteryV2).initialize(config._uri, false, address(this));
+        address nftAuctionV1 = Clones.clone(nftTicket);
+        INFTLotteryTicket(nftAuctionV1).initialize(config._uri, true, address(this));
+        address nftAuctionV2 = Clones.clone(nftTicket);
+        INFTLotteryTicket(nftAuctionV2).initialize(config._uri, true, address(this));
 
-    // Deploy LotteryV2 and link NFT
-    address lotteryV2Clone = Clones.clone(lotteryV2);
-    ILotteryBase(lotteryV2Clone).initialize(_seller, _operator, address(this));
-    INFTLotteryTicket(nftLotteryV2).setDepositContractAddr(lotteryV2Clone);
-    ILotteryBase(lotteryV2Clone).setNftContractAddr(nftLotteryV2);
+        // Deploy LotteryV1 and link NFT
+        address lotteryV1Clone = Clones.clone(lotteryV1);
+        StructsLibrary.ILotteryBaseConfig memory lotteryV1Config = StructsLibrary.ILotteryBaseConfig({
+            _seller: config._seller,
+            _operator: config._operator,
+            _owner: address(this),
+            _ticketAmount: config._lotteryV1TicketAmount,
+            _ticketPrice: config._ticketPrice,
+            _finishAt: config._finishAt,
+            _usdcContractAddr: config._usdcContractAddr,
+            _multisigWalletAddress: config._multisigWalletAddress
+        });
+        ILotteryBase(lotteryV1Clone).initialize(lotteryV1Config);
+        INFTLotteryTicket(nftLotteryV1).setDepositContractAddr(lotteryV1Clone);
+        ILotteryBase(lotteryV1Clone).setNftContractAddr(nftLotteryV1);
 
-    // Deploy AuctionV1 and link NFT
-    address auctionV1Clone = Clones.clone(auctionV1);
-    ILotteryBase(auctionV1Clone).initialize(_seller, _operator, address(this));
-    INFTLotteryTicket(nftAuctionV1).setDepositContractAddr(auctionV1Clone);
-    ILotteryBase(auctionV1Clone).setNftContractAddr(nftAuctionV1);
+        // Deploy LotteryV2 and link NFT
+        address lotteryV2Clone = Clones.clone(lotteryV2);
+        StructsLibrary.ILotteryBaseConfig memory lotteryV2Config = StructsLibrary.ILotteryBaseConfig({
+            _seller: config._seller,
+            _operator: config._operator,
+            _owner: address(this),
+            _ticketAmount: config._lotteryV2TicketAmount,
+            _ticketPrice: config._ticketPrice,
+            _finishAt: config._finishAt,
+            _usdcContractAddr: config._usdcContractAddr,
+            _multisigWalletAddress: config._multisigWalletAddress
+        });
+        ILotteryBase(lotteryV2Clone).initialize(lotteryV2Config);
+        INFTLotteryTicket(nftLotteryV2).setDepositContractAddr(lotteryV2Clone);
+        ILotteryBase(lotteryV2Clone).setNftContractAddr(nftLotteryV2);
 
-    // Deploy AuctionV2 and link NFT
-    address auctionV2Clone = Clones.clone(auctionV2);
-    IAuctionBase(auctionV2Clone).initialize(_seller, address(this));
-    INFTLotteryTicket(nftAuctionV2).setDepositContractAddr(auctionV2Clone);
-    ILotteryBase(auctionV2Clone).setNftContractAddr(nftAuctionV2);
+        // Deploy AuctionV1 and link NFT
+        address auctionV1Clone = Clones.clone(auctionV1);
+        StructsLibrary.ILotteryBaseConfig memory auctionV1Config = StructsLibrary.ILotteryBaseConfig({
+            _seller: config._seller,
+            _operator: config._operator,
+            _owner: address(this),
+            _ticketAmount: config._auctionV1TicketAmount,
+            _ticketPrice: config._ticketPrice,
+            _finishAt: config._finishAt,
+            _usdcContractAddr: config._usdcContractAddr,
+            _multisigWalletAddress: config._multisigWalletAddress
+        });
+        ILotteryBase(auctionV1Clone).initialize(auctionV1Config);
+        INFTLotteryTicket(nftAuctionV1).setDepositContractAddr(auctionV1Clone);
+        ILotteryBase(auctionV1Clone).setNftContractAddr(nftAuctionV1);
 
-    // transfer ownerships to owners
-    ILotteryBase(lotteryV1Clone).transferOwnership(_owner);
-    ILotteryBase(lotteryV2Clone).transferOwnership(_owner);
-    ILotteryBase(auctionV1Clone).transferOwnership(_owner);
-    ILotteryBase(auctionV2Clone).transferOwnership(_owner);
-    INFTLotteryTicket(nftLotteryV1).transferOwnership(_owner);
-    INFTLotteryTicket(nftLotteryV2).transferOwnership(_owner);
-    INFTLotteryTicket(nftAuctionV1).transferOwnership(_owner);
-    INFTLotteryTicket(nftAuctionV2).transferOwnership(_owner);
+        // Deploy AuctionV2 and link NFT
+        address auctionV2Clone = Clones.clone(auctionV2);
+        StructsLibrary.IAuctionBaseConfig memory auctionV2Config = StructsLibrary.IAuctionBaseConfig({
+            _seller: config._seller,
+            _owner: address(this),
+            _ticketAmount: config._auctionV2TicketAmount,
+            _ticketPrice: config._ticketPrice,
+            _finishAt: config._finishAt,
+            _auctionV1Clone: auctionV1Clone,
+            _usdcContractAddr: config._usdcContractAddr,
+            _multisigWalletAddress: config._multisigWalletAddress
+        });
+        IAuctionBase(auctionV2Clone).initialize(auctionV2Config);
+        INFTLotteryTicket(nftAuctionV2).setDepositContractAddr(auctionV2Clone);
+        ILotteryBase(auctionV2Clone).setNftContractAddr(nftAuctionV2);
 
-    sales[currentIndex] = [
-      lotteryV1Clone,
-      lotteryV2Clone,
-      auctionV1Clone,
-      auctionV2Clone
-    ];
+        // transfer ownerships to owners
+        ILotteryBase(lotteryV1Clone).transferOwnership(config._owner);
+        ILotteryBase(lotteryV2Clone).transferOwnership(config._owner);
+        ILotteryBase(auctionV1Clone).transferOwnership(config._owner);
+        ILotteryBase(auctionV2Clone).transferOwnership(config._owner);
+        INFTLotteryTicket(nftLotteryV1).transferOwnership(config._owner);
+        INFTLotteryTicket(nftLotteryV2).transferOwnership(config._owner);
+        INFTLotteryTicket(nftAuctionV1).transferOwnership(config._owner);
+        INFTLotteryTicket(nftAuctionV2).transferOwnership(config._owner);
 
-    currentIndex += 1;
+        sales[currentIndex] = [
+            lotteryV1Clone,
+            lotteryV2Clone,
+            auctionV1Clone,
+            auctionV2Clone
+        ];
 
-    return sales[currentIndex - 1];
-  }
+        currentIndex += 1;
+    }
 }

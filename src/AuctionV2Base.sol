@@ -4,17 +4,26 @@ pragma solidity ^0.8.13;
 import { Ownable } from "../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
 import { ERC2771Context } from "../lib/relay-context-contracts/contracts/vendor/ERC2771Context.sol";
 import { Context } from "../lib/openzeppelin-contracts/contracts/utils/Context.sol";
+import "src/vendor/StructsLibrary.sol";
 import "src/interfaces/INFTLotteryTicket.sol";
 import "src/interfaces/IERC20.sol";
 import "src/interfaces/ILotteryV2.sol";
 
 contract AuctionV2Base is Ownable(msg.sender), ERC2771Context(0xd8253782c45a12053594b9deB72d8e8aB2Fca54c) {
-    function initialize(address _seller, address _owner) public {
-      require(initialized == false, "Already initialized");
+    function initialize(StructsLibrary.IAuctionBaseConfig memory config) public {
+        require(initialized == false, "Already initialized");
+        seller = config._seller;
+        _transferOwnership(config._owner);
+        numberOfTickets = config._ticketAmount;
+        minimumDepositAmount = config._ticketPrice;
+        initialPrice = config._ticketPrice;
+        finishAt = config._finishAt;
+        auctionV1Addr = config._auctionV1Clone;
+        usdcContractAddr = config._usdcContractAddr;
+        multisigWalletAddress = config._multisigWalletAddress;
 
-      seller = _seller;
-      _transferOwnership(_owner);
-    }  
+        initialized = true;
+    }
 
     enum LotteryState {
         NOT_STARTED,
@@ -37,6 +46,7 @@ contract AuctionV2Base is Ownable(msg.sender), ERC2771Context(0xd8253782c45a1205
     address public multisigWalletAddress;
     address public seller;
 
+    uint256 public minimumDepositAmount;
     uint256 public initialPrice;
     uint256 public numberOfTickets;
     mapping(address => bool) public hasMinted;

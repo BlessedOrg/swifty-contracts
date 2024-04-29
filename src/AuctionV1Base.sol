@@ -5,19 +5,26 @@ import { Ownable } from "../lib/openzeppelin-contracts/contracts/access/Ownable.
 import { GelatoVRFConsumerBase } from "../lib/vrf-contracts/contracts/GelatoVRFConsumerBase.sol";
 import { ERC2771Context } from "../lib/relay-context-contracts/contracts/vendor/ERC2771Context.sol";
 import { Context } from "../lib/openzeppelin-contracts/contracts/utils/Context.sol";
+import "src/vendor/StructsLibrary.sol";
 import "src/interfaces/INFTLotteryTicket.sol";
 import "src/interfaces/IERC20.sol";
 import "src/interfaces/ILotteryV2.sol";
 import "src/interfaces/IAuctionV2.sol";
 
 contract AuctionV1Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Context(0xd8253782c45a12053594b9deB72d8e8aB2Fca54c) {
-    function initialize(address _seller, address _operatorAddr, address _owner) public {
-      require(initialized == false, "Already initialized");
+    function initialize(StructsLibrary.ILotteryBaseConfig memory config) public {
+        require(initialized == false, "Already initialized");
+        seller = config._seller;
+        operatorAddr = config._operator;
+        _transferOwnership(config._owner);
+        numberOfTickets = config._ticketAmount;
+        minimumDepositAmount = config._ticketPrice;
+        finishAt = config._finishAt;
+        usdcContractAddr = config._usdcContractAddr;
+        multisigWalletAddress = config._multisigWalletAddress;
 
-      seller = _seller;
-      operatorAddr = _operatorAddr;
-      _transferOwnership(_owner);
-    }        
+        initialized = true;
+    }
 
     enum LotteryState {
         NOT_STARTED,
@@ -26,6 +33,7 @@ contract AuctionV1Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
         VRF_REQUESTED,
         VRF_COMPLETED
     }
+
     bool public initialized = false;
 
     LotteryState public lotteryState;
@@ -34,6 +42,7 @@ contract AuctionV1Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
     address public seller;
     address public operatorAddr;
 
+    uint256 public minimumDepositAmount;
     uint256 public currentPrice;
     uint256 public initialPrice;
     uint256 public prevRoundDeposits;
@@ -217,7 +226,7 @@ contract AuctionV1Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
         IERC20(usdcContractAddr).transfer(seller, amountToSeller);
     }
 
-    function requestRandomness(bytes memory) external onlySeller {
+    function requestRandomness() external onlySeller {
         _requestRandomness(abi.encode(_msgSender()));
         emit RandomRequested(_msgSender());
     } 

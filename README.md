@@ -7,10 +7,10 @@ Participants can deposit funds (USDC or other ERC20) to qualify for a lottery, w
 ## Contracts
 
 - `NFTLotteryTicket.sol`: Represents tickets as NFTs. Some tickets (depending on auction or lottery type) might be non-transferable (soulbound). Winning the lottery or an auction grants the ability to mint such token.
-- `Lottery.sol`: Enables to participate in initial sale of small portion of tickets. Eligible buyers are selected randomly via VRF. 
-- `LotteryV2.sol`: Allows potential buyers and sellers to roll a dice and generate a random number. Numbers close to the seller's position become eligible for minting.
-- `AuctionV1.sol`: Customers bid the same price and if there's a higher demand for tickets, lucky bidders are selected via VRF.
-- `AuctionV2.sol`: First `n` highest bids are eligible to mint tickets (n = number of available tickets)
+- `LotteryV1Base.sol`: Enables to participate in initial sale of small portion of tickets. Eligible buyers are selected randomly via VRF. 
+- `LotteryV2Base.sol`: Allows potential buyers and sellers to roll a dice and generate a random number. Numbers close to the seller's position become eligible for minting.
+- `AuctionV1Base.sol`: Customers bid the same price and if there's a higher demand for tickets, lucky bidders are selected via VRF.
+- `AuctionV2Base.sol`: First `n` highest bids are eligible to mint tickets (n = number of available tickets)
 
 ## How to deploy & setup contracts (applicable to sellers)
 
@@ -21,7 +21,7 @@ Participants can deposit funds (USDC or other ERC20) to qualify for a lottery, w
 
 2. **Deploy the Lottery, LotteryV1 and Auction contracts:**
 
-   - Compile `Lottery.sol`, `LotteryV2.sol`, `AuctionV1.sol` and `AuctionV2.sol` using Forge, Remix, or Hardhat.
+   - Compile `LotteryV1Base.sol`, `LotteryV2Base.sol`, `AuctionV1Base.sol` and `AuctionV2Base.sol` using Forge, Remix, or Hardhat.
    - Deploy the contract to your chosen EVM compatible network. During deployment, specify the seller's address as a constructor parameter.
 
 
@@ -69,11 +69,11 @@ Participants can deposit funds (USDC or other ERC20) to qualify for a lottery, w
    - If not a winner, withdraw your deposited funds using `buyerWithdraw`.
 
 ## Contracts deployed to OP Celestia Raspberry
-- `NFTLotteryTicket.sol`: https://opcelestia-raspberry.gelatoscout.com/address/0x1E1719C267084AfC679115b1C033eD7E2405757D
-- `Lottery.sol`: https://opcelestia-raspberry.gelatoscout.com/address/0x7B4247FEB47c2e791556290A7624Dd42a9aC17c0
-- `LotteryV2.sol`: https://opcelestia-raspberry.gelatoscout.com/address/0x0DC85298230d4b930FB17B1774c0F4c471F7af78
-- `AuctionV1.sol`: https://opcelestia-raspberry.gelatoscout.com/address/0xc84080c34a06Ad19BbD0adcD992aae80846b757b
-- `AuctionV2.sol`: https://opcelestia-raspberry.gelatoscout.com/address/0x37C7111Daea6F7276468de90D3308d72705cac84
+- `NFTLotteryTicket.sol`: https://opcelestia-raspberry.gelatoscout.com/address/0xA69bA2a280287405907f70c637D8e6f1B278E613
+- `LotteryV1Base.sol`: https://opcelestia-raspberry.gelatoscout.com/address/0x90399E7a859D12a58A3F5452e81845737A006e6d
+- `LotteryV2Base.sol`: https://opcelestia-raspberry.gelatoscout.com/address/0x7A5f8bd336c57Fe5D4EE04167055B7cA5d4aa06f
+- `AuctionV1Base.sol`: https://opcelestia-raspberry.gelatoscout.com/address/0xAEE619dCF727e5ca92568ca0bE8220096957FEca
+- `AuctionV2Base.sol`: https://opcelestia-raspberry.gelatoscout.com/address/0xc0033864B203287F5fa1E8a46a76BB4B9955b143
 
 ## Testnet
 Connection details: 
@@ -94,28 +94,28 @@ forge create --rpc-url https://rpc.opcelestia-raspberry.gelato.digital \
 forge create --rpc-url https://rpc.opcelestia-raspberry.gelato.digital \
    --constructor-args 0x727b6D0a1DD1cA8f3132B6Bc8E1Cfa0C04CAb806 0xA3Abd4D05765d359F9DAB6905A1C08C1D2e3F4E2 \
    --private-key "{YOUR_PRIVATE_KEY}" \
-   src/Lottery.sol:Lottery
+   src/LotteryV1Base.sol:LotteryV1Base
 ```
 
 ```
 forge create --rpc-url https://rpc.opcelestia-raspberry.gelato.digital \
     --constructor-args 0x727b6D0a1DD1cA8f3132B6Bc8E1Cfa0C04CAb806 0xA3Abd4D05765d359F9DAB6905A1C08C1D2e3F4E2  \
    --private-key "{YOUR_PRIVATE_KEY}" \
-    src/LotteryV2.sol:LotteryV2
+    src/LotteryV2Base.sol:LotteryV2Base
 ```
 
 ```
 forge create --rpc-url https://rpc.opcelestia-raspberry.gelato.digital \
    --constructor-args 0x727b6D0a1DD1cA8f3132B6Bc8E1Cfa0C04CAb806 0xA3Abd4D05765d359F9DAB6905A1C08C1D2e3F4E2  \
    --private-key "{YOUR_PRIVATE_KEY}" \
-   src/AuctionV1.sol:AuctionV1
+   src/AuctionV1Base.sol:AuctionV1Base
 ```
 
 ```
 forge create --rpc-url https://rpc.opcelestia-raspberry.gelato.digital \
    --constructor-args 0x727b6D0a1DD1cA8f3132B6Bc8E1Cfa0C04CAb806 0xA3Abd4D05765d359F9DAB6905A1C08C1D2e3F4E2  \
    --private-key "{YOUR_PRIVATE_KEY}" \
-   src/AuctionV2.sol:AuctionV2
+   src/AuctionV2Base.sol:AuctionV2Base
 ```
 Make sure you have proper constructor arguments specified:
 - `0x727b6D0a1DD1cA8f3132B6Bc8E1Cfa0C04CAb806` replace with your seller address
@@ -135,6 +135,8 @@ All you need to do is:
 - paste flattened contract code 
 - specify compiler version to 0.8.23
 - specify evm version to `paris`
+- if you fail to verify, then try to switch compiler version to 0.8.25
+
 
 ## Run unit tests locally
 ```
