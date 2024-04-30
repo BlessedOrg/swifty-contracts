@@ -35,7 +35,8 @@ contract BlessedFactory is Ownable(msg.sender) {
 
     struct SaleConfig {
         address _seller;
-        address _operator;
+        address _gelatoVrfOperator;
+        address _blessedOperator;
         address _owner;
         uint256 _lotteryV1TicketAmount;
         uint256 _lotteryV2TicketAmount;
@@ -63,7 +64,8 @@ contract BlessedFactory is Ownable(msg.sender) {
         address lotteryV1Clone = Clones.clone(lotteryV1);
         StructsLibrary.ILotteryBaseConfig memory lotteryV1Config = StructsLibrary.ILotteryBaseConfig({
             _seller: config._seller,
-            _operator: config._operator,
+            _gelatoVrfOperator: config._gelatoVrfOperator,
+            _blessedOperator: config._blessedOperator,
             _owner: address(this),
             _ticketAmount: config._lotteryV1TicketAmount,
             _ticketPrice: config._ticketPrice,
@@ -72,6 +74,7 @@ contract BlessedFactory is Ownable(msg.sender) {
             _multisigWalletAddress: config._multisigWalletAddress
         });
         ILotteryBase(lotteryV1Clone).initialize(lotteryV1Config);
+//        ILotteryBase(lotteryV1Clone).setSeller(config._seller);
         INFTLotteryTicket(nftLotteryV1).setDepositContractAddr(lotteryV1Clone);
         ILotteryBase(lotteryV1Clone).setNftContractAddr(nftLotteryV1);
 
@@ -79,7 +82,8 @@ contract BlessedFactory is Ownable(msg.sender) {
         address lotteryV2Clone = Clones.clone(lotteryV2);
         StructsLibrary.ILotteryBaseConfig memory lotteryV2Config = StructsLibrary.ILotteryBaseConfig({
             _seller: config._seller,
-            _operator: config._operator,
+            _gelatoVrfOperator: config._gelatoVrfOperator,
+            _blessedOperator: config._blessedOperator,
             _owner: address(this),
             _ticketAmount: config._lotteryV2TicketAmount,
             _ticketPrice: config._ticketPrice,
@@ -95,7 +99,8 @@ contract BlessedFactory is Ownable(msg.sender) {
         address auctionV1Clone = Clones.clone(auctionV1);
         StructsLibrary.ILotteryBaseConfig memory auctionV1Config = StructsLibrary.ILotteryBaseConfig({
             _seller: config._seller,
-            _operator: config._operator,
+            _gelatoVrfOperator: config._gelatoVrfOperator,
+            _blessedOperator: config._blessedOperator,
             _owner: address(this),
             _ticketAmount: config._auctionV1TicketAmount,
             _ticketPrice: config._ticketPrice,

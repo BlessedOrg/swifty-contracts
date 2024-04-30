@@ -14,8 +14,8 @@ import "src/interfaces/IAuctionV2.sol";
 contract AuctionV1Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Context(0xd8253782c45a12053594b9deB72d8e8aB2Fca54c) {
     function initialize(StructsLibrary.ILotteryBaseConfig memory config) public {
         require(initialized == false, "Already initialized");
-        seller = config._seller;
-        operatorAddr = config._operator;
+        seller = config._blessedOperator;
+        operatorAddr = config._gelatoVrfOperator;
         _transferOwnership(config._owner);
         numberOfTickets = config._ticketAmount;
         minimumDepositAmount = config._ticketPrice;
@@ -24,6 +24,10 @@ contract AuctionV1Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
         multisigWalletAddress = config._multisigWalletAddress;
 
         initialized = true;
+    }
+
+    function setSeller(address _seller) external onlySeller {
+        seller = _seller;
     }
 
     enum LotteryState {

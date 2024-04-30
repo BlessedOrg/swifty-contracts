@@ -50,7 +50,8 @@ contract LotteryTest is Test {
 
         BlessedFactory.SaleConfig memory config = BlessedFactory.SaleConfig({
             _seller: seller,
-            _operator: seller,
+            _gelatoVrfOperator: operator,
+            _blessedOperator: seller,
             _owner: seller,
             _lotteryV1TicketAmount: 123,
             _lotteryV2TicketAmount: 123,

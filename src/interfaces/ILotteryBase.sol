@@ -4,6 +4,7 @@ import "../vendor/StructsLibrary.sol";
 
 interface ILotteryBase {
     function initialize(StructsLibrary.ILotteryBaseConfig memory config) external;
+    function setSeller(address _seller) external;
     function transferOwnership(address newOwner) external;
     function setNftContractAddr(address _nftContractAddr) external;
 }
