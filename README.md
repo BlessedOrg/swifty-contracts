@@ -24,34 +24,29 @@ Participants can deposit funds (USDC or other ERC20) to qualify for a lottery, w
    - Compile `LotteryV1Base.sol`, `LotteryV2Base.sol`, `AuctionV1Base.sol` and `AuctionV2Base.sol` using Forge, Remix, or Hardhat.
    - Deploy the contract to your chosen EVM compatible network. During deployment, specify the seller's address as a constructor parameter.
 
+3. **Use those Contracts to create BlessedFactory (setBaseContracts function)**
+
+   - To see the whole process of configuring Sale, check the endpoint in Blessed app: https://github.com/BlessedOrg/swifty-app/blob/main/src/app/api/events/%5Bid%5D/deployContracts/route.ts 
 
 ## How to Use
 
 ### As the Seller
 
-1. **Initialize the Lottery or Auction:**
-
-   - Set the minimum deposit amount required for participants to be eligible using `setMinimumDepositAmount`.
-   - Set the number of tickets/winners using `setNumberOfTickets`.
-   - Link NFT contract to the lottery or auction using `setNftContractAddr`.
-   - Configure ERC20 payment token for deposits using `setUsdcContractAddr`.
-   - Configure timestamp until when deposits are possible using `setFinishAt`.   
-
-2. **Start the Lottery:**
+1. **Start the Lottery:**
 
    - Call `startLottery` to change the state to ACTIVE and automatically check for eligible participants.
 
-3. **Selecting Winners:**
+2. **Selecting Winners:**
 
    - Manually initiate the winner selection process by calling `selectWinners`.
    - The contract will request randomness from Gelato's VRF, and winners will be selected one by one.
    - Monitor the `WinnerSelected` and `LotteryEnded` events.
 
-4. **End the Lottery:**
+3. **End the Lottery:**
 
    - Once all winners are selected, or when you decide to end the lottery, call `endLottery`.
 
-5. **Withdraw Funds:**
+4. **Withdraw Funds:**
    - After the lottery ends, call `sellerWithdraw` to collect the funds from losing participants.
 
 ### As a Participant
@@ -70,10 +65,10 @@ Participants can deposit funds (USDC or other ERC20) to qualify for a lottery, w
 
 ## Contracts deployed to OP Celestia Raspberry
 - `NFTLotteryTicket.sol`: https://opcelestia-raspberry.gelatoscout.com/address/0xA69bA2a280287405907f70c637D8e6f1B278E613
-- `LotteryV1Base.sol`: https://opcelestia-raspberry.gelatoscout.com/address/0x90399E7a859D12a58A3F5452e81845737A006e6d
-- `LotteryV2Base.sol`: https://opcelestia-raspberry.gelatoscout.com/address/0x7A5f8bd336c57Fe5D4EE04167055B7cA5d4aa06f
-- `AuctionV1Base.sol`: https://opcelestia-raspberry.gelatoscout.com/address/0xAEE619dCF727e5ca92568ca0bE8220096957FEca
-- `AuctionV2Base.sol`: https://opcelestia-raspberry.gelatoscout.com/address/0xc0033864B203287F5fa1E8a46a76BB4B9955b143
+- `LotteryV1Base.sol`: https://opcelestia-raspberry.gelatoscout.com/address/0xC883d0b60EaF2646483cEafC0c50Ea755C7f794C
+- `LotteryV2Base.sol`: https://opcelestia-raspberry.gelatoscout.com/address/0xAF3c36Cb30b88899873E76bFd5E906E0d69d1F53
+- `AuctionV1Base.sol`: https://opcelestia-raspberry.gelatoscout.com/address/0xbb5EFc7c05867A010bF6Fa3Ed34230D40CF85941
+- `AuctionV2Base.sol`: https://opcelestia-raspberry.gelatoscout.com/address/0xc0C18852552DF4A66FcE60bC444b23Eb5B4FCF59
 
 ## Testnet
 Connection details: 
@@ -85,57 +80,49 @@ https://bridge.gelato.network/bridge/opcelestia-raspberry
 ## How to deploy to testnet? 
 ```
 forge create --rpc-url https://rpc.opcelestia-raspberry.gelato.digital \
-   --constructor-args "https://example.com/" true \
    --private-key "{YOUR_PRIVATE_KEY}" \
    src/NFTLotteryTicket.sol:NFTLotteryTicket 
 ```
 
 ```
 forge create --rpc-url https://rpc.opcelestia-raspberry.gelato.digital \
-   --constructor-args 0x727b6D0a1DD1cA8f3132B6Bc8E1Cfa0C04CAb806 0xA3Abd4D05765d359F9DAB6905A1C08C1D2e3F4E2 \
    --private-key "{YOUR_PRIVATE_KEY}" \
    src/LotteryV1Base.sol:LotteryV1Base
 ```
 
 ```
 forge create --rpc-url https://rpc.opcelestia-raspberry.gelato.digital \
-    --constructor-args 0x727b6D0a1DD1cA8f3132B6Bc8E1Cfa0C04CAb806 0xA3Abd4D05765d359F9DAB6905A1C08C1D2e3F4E2  \
    --private-key "{YOUR_PRIVATE_KEY}" \
     src/LotteryV2Base.sol:LotteryV2Base
 ```
 
 ```
 forge create --rpc-url https://rpc.opcelestia-raspberry.gelato.digital \
-   --constructor-args 0x727b6D0a1DD1cA8f3132B6Bc8E1Cfa0C04CAb806 0xA3Abd4D05765d359F9DAB6905A1C08C1D2e3F4E2  \
    --private-key "{YOUR_PRIVATE_KEY}" \
    src/AuctionV1Base.sol:AuctionV1Base
 ```
 
 ```
 forge create --rpc-url https://rpc.opcelestia-raspberry.gelato.digital \
-   --constructor-args 0x727b6D0a1DD1cA8f3132B6Bc8E1Cfa0C04CAb806 0xA3Abd4D05765d359F9DAB6905A1C08C1D2e3F4E2  \
    --private-key "{YOUR_PRIVATE_KEY}" \
    src/AuctionV2Base.sol:AuctionV2Base
 ```
-Make sure you have proper constructor arguments specified:
-- `0x727b6D0a1DD1cA8f3132B6Bc8E1Cfa0C04CAb806` replace with your seller address
-- `0xA3Abd4D05765d359F9DAB6905A1C08C1D2e3F4E2` replace with VRF sender address (get it in from your Gelato dashboard)
 
-## How to verify contract code at testnet?
+## How to verify contract code at testnet? (not working for OP Celestia Raspberry)
 ```
 forge verify-contract {CONTRACT_ADDR} NFTLotteryTicket --verifier blockscout --verifier-url https://opcelestia-raspberry.gelatoscout.com/api --chain 123420111 --constructor-args $(cast abi-encode "constructor(string,bool)" "https://example.com/" true)
 ```
-## How to verify if `forge verify-contract` doesn't work? 
-When script is not working for some reason, the best option is to try use flattened code technique. 
+## How to verify if `forge verify-contract` doesn't work?
+When script is not working for some reason, the best option is to try use flattened code technique.
 
 All you need to do is: 
 - flatten contract code using `forge flatten --output ./src/{ContractName}.flattened.sol ./src/{ContractName}.sol`
 - go to the explorer, type address, click Contract => Verify 
 - select single file code mode 
 - paste flattened contract code 
-- specify compiler version to 0.8.23
+- specify compiler version to 0.8.25
 - specify evm version to `paris`
-- if you fail to verify, then try to switch compiler version to 0.8.25
+- if you fail to verify, go to `out` folder, find your `{ContractName}.json` file, and under the `rawMetada` object look for the keys `compiler` and `evmVersion` 
 
 
 ## Run unit tests locally

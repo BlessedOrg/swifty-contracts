@@ -74,7 +74,6 @@ contract BlessedFactory is Ownable(msg.sender) {
             _multisigWalletAddress: config._multisigWalletAddress
         });
         ILotteryBase(lotteryV1Clone).initialize(lotteryV1Config);
-//        ILotteryBase(lotteryV1Clone).setSeller(config._seller);
         INFTLotteryTicket(nftLotteryV1).setDepositContractAddr(lotteryV1Clone);
         ILotteryBase(lotteryV1Clone).setNftContractAddr(nftLotteryV1);
 
