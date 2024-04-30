@@ -27,6 +27,20 @@ contract AuctionV1Test is Test {
     address operator;
     address multisigWallet;
 
+    struct SaleConfig {
+        address _seller;
+        address _operator;
+        address _owner;
+        uint256 _lotteryV1TicketAmount;
+        uint256 _lotteryV2TicketAmount;
+        uint256 _auctionV1TicketAmount;
+        uint256 _auctionV2TicketAmount;
+        uint256 _ticketPrice;
+        uint256 _finishAt;
+        string _uri;
+        address _usdcContractAddr;
+    }
+
     function setUp() public {
         // Generate addresses from private keys
         seller = vm.addr(sellerPrivateKey);
@@ -48,9 +62,24 @@ contract AuctionV1Test is Test {
             address(auctionV2Base)
         );
 
-        blessedFactory.createSale(seller, operator, seller, "http://tokenuri.com/");
-        address auctionV1baseAddr = blessedFactory.sales(0, 2);
+        BlessedFactory.SaleConfig memory config = BlessedFactory.SaleConfig({
+            _seller: seller,
+            _gelatoVrfOperator: operator,
+            _blessedOperator: seller,
+            _owner: seller,
+            _lotteryV1TicketAmount: 123,
+            _lotteryV2TicketAmount: 123,
+            _auctionV1TicketAmount: 123,
+            _auctionV2TicketAmount: 123,
+            _ticketPrice: 100,
+            _finishAt: 100,
+            _uri: "https://api.example.com/v1/",
+            _usdcContractAddr: address(usdcToken),
+            _multisigWalletAddress: multisigWallet
+        });
 
+        blessedFactory.createSale(config);
+        address auctionV1baseAddr = blessedFactory.sales(0, 2);
 
         // Deploy the Deposit contract with the seller address
         // auction = new AuctionV1(seller, operator);

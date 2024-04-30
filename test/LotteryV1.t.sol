@@ -48,7 +48,24 @@ contract LotteryTest is Test {
             address(auctionV2Base)
         );
 
-        blessedFactory.createSale(seller, operator, seller, "http://tokenuri.com/");
+        BlessedFactory.SaleConfig memory config = BlessedFactory.SaleConfig({
+            _seller: seller,
+            _gelatoVrfOperator: operator,
+            _blessedOperator: seller,
+            _owner: seller,
+            _lotteryV1TicketAmount: 123,
+            _lotteryV2TicketAmount: 123,
+            _auctionV1TicketAmount: 123,
+            _auctionV2TicketAmount: 123,
+            _ticketPrice: 100,
+            _finishAt: 100,
+            _uri: "https://api.example.com/v1/",
+            _usdcContractAddr: seller,
+            _multisigWalletAddress: multisigWallet
+        });
+
+        blessedFactory.createSale(config);
+
         address lotteryBaseAddr = blessedFactory.sales(0, 0);
 
         lottery = LotteryV1Base(lotteryBaseAddr);
