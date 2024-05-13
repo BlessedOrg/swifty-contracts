@@ -111,7 +111,7 @@ contract AuctionV2Base is Ownable(msg.sender), ERC2771Context(0xd8253782c45a1205
     function _msgData() internal view override(ERC2771Context, Context)
         returns (bytes calldata) {
         return ERC2771Context._msgData();
-    }    
+    }
 
     function isParticipant(address _participant) public view returns (bool) {
         for (uint i = 0; i < participants.length; i++) {
@@ -149,11 +149,11 @@ contract AuctionV2Base is Ownable(msg.sender), ERC2771Context(0xd8253782c45a1205
 
     function setOperator(address _operator, bool _flag) public onlyOwner {
         operators[_operator] = _flag;
-    }      
+    }
 
     function setNftContractAddr(address _nftContractAddr) public onlyOwner {
         nftContractAddr = _nftContractAddr;
-    }    
+    }
 
     function changeLotteryState(LotteryState _newState) public onlySeller {
         lotteryState = _newState;
@@ -165,6 +165,10 @@ contract AuctionV2Base is Ownable(msg.sender), ERC2771Context(0xd8253782c45a1205
 
     function getWinners() public view returns (address[] memory) {
         return winnerAddresses;
+    }
+
+    function getParticipants() public view returns (address[] memory) {
+        return participants;
     }
 
     function setWinner(address _winner) public onlySeller {
