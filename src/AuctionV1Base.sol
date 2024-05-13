@@ -148,6 +148,10 @@ contract AuctionV1Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
         return participants;
     }
 
+    function getEligibleParticipants() public view returns (address[] memory) {
+        return eligibleParticipants;
+    }
+
     function setMultisigWalletAddress(address _multisigWalletAddress) public onlyOwner {
         multisigWalletAddress = _multisigWalletAddress;
     }
