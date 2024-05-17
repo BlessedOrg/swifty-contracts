@@ -140,11 +140,26 @@ forge test -vv
 - Thoroughly test all functionalities, especially around deposits, winner selection, and NFT minting.
 - Consider security best practices and potentially get a smart contract audit.
 
-## UX 
-
-- We create a dedicated UX section here.
-
 
 ## Conclusion
 
 This NFT Lottery Ticket System offers a transparent and fair way to distribute unique NFTs to participants. The integration with Gelato VRF ensures trusted randomness.
+
+## Related further Links
+Here we list all relevant other repos.
+
+## APP 
+
+We create a dedicated repo for the APP to you understand the database structure and how to set it up.
+https://github.com/BlessedOrg/swifty-app  
+
+## UX 
+
+We create a dedicated UX repo as we also partipated in the UX challenge and we explained there in detail with screenshoots what challenges we had and what how we solved that UX wise.  
+https://github.com/BlessedOrg/UX--UI  
+
+## Gelato Bounty 
+
+For the Gelato Bounty we create also our own repo where we share our findings.
+We needed to link it at the UX Challenge too, please consider that this was a constraint of handing in a submission to pick one and to be complete we listed it here as well as in the other signed in built where we soley focused on UX challenges.  
+https://github.com/BlessedOrg/Gelato
