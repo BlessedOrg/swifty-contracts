@@ -5,6 +5,7 @@ import {Ownable} from "../lib/openzeppelin-contracts/contracts/access/Ownable.so
 import {GelatoVRFConsumerBase} from "../lib/vrf-contracts/contracts/GelatoVRFConsumerBase.sol";
 import {ERC2771Context} from "../lib/relay-context-contracts/contracts/vendor/ERC2771Context.sol";
 import {Context} from "../lib/openzeppelin-contracts/contracts/utils/Context.sol";
+import {DigitExtractorFromNumber} from "./vendor/DigitExtractorFromNumber.sol";
 import "src/vendor/StructsLibrary.sol";
 import "src/interfaces/INFTLotteryTicket.sol";
 import "src/interfaces/IERC20.sol";
@@ -18,6 +19,7 @@ contract LotteryV2Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
         _transferOwnership(config._owner);
         numberOfTickets = config._ticketAmount;
         minimumDepositAmount = config._ticketPrice;
+        finishAt = config._finishAt;
         finishAt = config._finishAt;
         usdcContractAddr = config._usdcContractAddr;
         multisigWalletAddress = config._multisigWalletAddress;
@@ -118,7 +120,6 @@ contract LotteryV2Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
 
     function setRandomNumber() public onlySeller() {
         require(randomNumber == 0, "Random number already set");
-
         randomNumber = getRandomNumber();
     }
 
@@ -136,11 +137,12 @@ contract LotteryV2Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
         address requestedBy = abi.decode(extraData, (address));
 
         if(requestedBy == seller) {
-            randomNumber = randomness;
+            randomNumber = DigitExtractorFromNumber.extractFirst14Digits(randomness);
         } else {
-            rolledNumbers[requestedBy] = randomness;
+            rolledNumbers[requestedBy] = DigitExtractorFromNumber.extractFirst14Digits(randomness);
+            claimNumber(requestedBy);
         }
-        emit RandomFullfiled(requestedBy, randomness);
+        emit RandomFullfiled(requestedBy, DigitExtractorFromNumber.extractFirst14Digits(randomness));
     }
 
     function deposit(uint256 amount) public whenLotteryNotActive {
