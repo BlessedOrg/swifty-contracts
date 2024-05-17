@@ -140,6 +140,11 @@ forge test -vv
 - Thoroughly test all functionalities, especially around deposits, winner selection, and NFT minting.
 - Consider security best practices and potentially get a smart contract audit.
 
+## UX 
+
+- We create a dedicated UX section here.
+
+
 ## Conclusion
 
 This NFT Lottery Ticket System offers a transparent and fair way to distribute unique NFTs to participants. The integration with Gelato VRF ensures trusted randomness.
