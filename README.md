@@ -4,6 +4,22 @@ This system enables sellers to create and manage an NFT-based ticketing system i
 
 Participants can deposit funds (USDC or other ERC20) to qualify for a lottery, where winners are randomly selected via [Gelato's VRF](https://www.gelato.network/vrf) service. Second option to get your seats is participation in live auctions.
 
+# Demo Links
+We had a limitation by loom therefore we had to split to multiple videos:
+
+**Part I**  
+
+https://www.loom.com/share/1bbe0842fdd44baeba9c8354d2d5e2b2
+
+**Part 2**  
+
+https://www.loom.com/share/a0f5f33b34b04d639a921ad31aa01d1a
+
+**Part 3**  
+
+https://www.loom.com/share/2a15180337ea4aad91f7693936ed173c
+
+
 ## Contracts
 
 - `NFTLotteryTicket.sol`: Represents tickets as NFTs. Some tickets (depending on auction or lottery type) might be non-transferable (soulbound). Winning the lottery or an auction grants the ability to mint such token.
