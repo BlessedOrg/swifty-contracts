@@ -18,9 +18,9 @@ contract AuctionV2Base is Ownable(msg.sender), ERC2771Context(0xd8253782c45a1205
         minimumDepositAmount = config._ticketPrice;
         initialPrice = config._ticketPrice;
         finishAt = config._finishAt;
-        auctionV1Addr = config._auctionV1Clone;
         usdcContractAddr = config._usdcContractAddr;
         multisigWalletAddress = config._multisigWalletAddress;
+        auctionV1Addr = config._prevPhaseContractAddr;
 
         initialized = true;
     }
@@ -233,11 +233,10 @@ contract AuctionV2Base is Ownable(msg.sender), ERC2771Context(0xd8253782c45a1205
             }
         } else {
             sortDepositsDesc();
-
             uint256 lowestWinDeposit = deposits[participants[numberOfTickets - 1]].amount;
 
             // take the first n winners
-            for (uint256 i = 0; i < participants.length; i++) {
+            for (uint256 i = 0; i < numberOfTickets; i++) {
                 if(deposits[participants[i]].amount >= lowestWinDeposit) {
                   address selectedWinner = participants[i];
 

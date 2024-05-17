@@ -203,21 +203,19 @@ contract LotteryV1Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
         require(numberOfTickets > 0, "No tickets left to allocate");
 
         if(numberOfTickets >= eligibleParticipants.length) {
-            // less demand than supply, no need for lottery. Everybody wins!
+            // If demand is less than or equal to supply, everyone wins
             for (uint256 i = 0; i < eligibleParticipants.length; i++) {
                 address selectedWinner = eligibleParticipants[i];
-
                 if (!isWinner(selectedWinner)) {
                     setWinner(selectedWinner);
                     emit WinnerSelected(selectedWinner);
                 }
             }
-            for (uint256 i = 0; i < eligibleParticipants.length; i++) {
-                removeParticipant(i);
-                numberOfTickets--;
-            }
+            // Clear the participants list since all are winners
+            delete eligibleParticipants;
+            numberOfTickets = 0;
         } else {
-            // shuffle array of winners
+            // Shuffle the array of participants
             for (uint j = 0; j < eligibleParticipants.length; j++) {
                 uint n = j + randomNumber % (eligibleParticipants.length - j);
                 address temp = eligibleParticipants[n];
@@ -225,18 +223,26 @@ contract LotteryV1Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
                 eligibleParticipants[j] = temp;
             }
 
-            // take the first n winners
+            // Select the first `numberOfTickets` winners
             for (uint256 i = 0; i < numberOfTickets; i++) {
                 address selectedWinner = eligibleParticipants[i];
-
                 if (!isWinner(selectedWinner)) {
                     setWinner(selectedWinner);
-                    removeParticipant(i);
-                    numberOfTickets--;
-
                     emit WinnerSelected(selectedWinner);
                 }
             }
+
+            // Remove the winners from the participants list by shifting non-winners up
+            uint256 shiftIndex = 0;
+            for (uint256 i = numberOfTickets; i < eligibleParticipants.length; i++) {
+                eligibleParticipants[shiftIndex] = eligibleParticipants[i];
+                shiftIndex++;
+            }
+            for (uint256 i = shiftIndex; i < eligibleParticipants.length; i++) {
+                eligibleParticipants.pop();
+            }
+
+            numberOfTickets = 0;
         }
 
         if (numberOfTickets == 0) {

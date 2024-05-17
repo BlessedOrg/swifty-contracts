@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.13;
 
-import { Ownable } from "../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
-import { GelatoVRFConsumerBase } from "../lib/vrf-contracts/contracts/GelatoVRFConsumerBase.sol";
-import { ERC2771Context } from "../lib/relay-context-contracts/contracts/vendor/ERC2771Context.sol";
-import { Context } from "../lib/openzeppelin-contracts/contracts/utils/Context.sol";
+import {Ownable} from "../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
+import {GelatoVRFConsumerBase} from "../lib/vrf-contracts/contracts/GelatoVRFConsumerBase.sol";
+import {ERC2771Context} from "../lib/relay-context-contracts/contracts/vendor/ERC2771Context.sol";
+import {Context} from "../lib/openzeppelin-contracts/contracts/utils/Context.sol";
 import "src/vendor/StructsLibrary.sol";
 import "src/interfaces/INFTLotteryTicket.sol";
 import "src/interfaces/IERC20.sol";
@@ -21,6 +21,7 @@ contract LotteryV2Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
         finishAt = config._finishAt;
         usdcContractAddr = config._usdcContractAddr;
         multisigWalletAddress = config._multisigWalletAddress;
+        lotteryV1Addr = config._prevPhaseContractAddr;
 
         initialized = true;
     }
@@ -30,9 +31,9 @@ contract LotteryV2Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
     }
 
     enum LotteryState {
-      NOT_STARTED,
-      ACTIVE,
-      ENDED
+        NOT_STARTED,
+        ACTIVE,
+        ENDED
     }
 
     bool public initialized = false;
@@ -102,12 +103,12 @@ contract LotteryV2Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
     }
 
     function _msgSender() internal view override(ERC2771Context, Context)
-        returns (address sender) {
+    returns (address sender) {
         sender = ERC2771Context._msgSender();
     }
 
     function _msgData() internal view override(ERC2771Context, Context)
-        returns (bytes calldata) {
+    returns (bytes calldata) {
         return ERC2771Context._msgData();
     }
 
@@ -279,20 +280,21 @@ contract LotteryV2Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
     }
 
     function isClaimable(address _participant) public view returns (bool) {
-      if(deposits[_participant] >= minimumDepositAmount && randomNumber + rollTolerance >= rolledNumbers[_participant] && randomNumber - rollTolerance <= rolledNumbers[_participant]) {
-        return true;
-      }
-      return false;
+        if(deposits[_participant] >= minimumDepositAmount && randomNumber + rollTolerance >= rolledNumbers[_participant] && randomNumber - rollTolerance <= rolledNumbers[_participant]) {
+            return true;
+        }
+        return false;
     }
 
-    function claimNumber(address _participant) public {
-      if(isClaimable(_participant)) {
-        winners[_participant] = true;
-        winnerAddresses.push(_participant);
-        emit WinnerSelected(_participant);
-      } else {
-        revert("Participant is not claimable");
-      }
+    function claimNumber(address _participant) public returns (bool) {
+        if (isClaimable(_participant)) {
+            winners[_participant] = true;
+            winnerAddresses.push(_participant);
+            emit WinnerSelected(_participant);
+            return true;
+        } else {
+            return false;
+        }
     }
 
     function setLotteryV1Addr(address _lotteryV1Addr) public onlySeller {
@@ -319,10 +321,10 @@ contract LotteryV2Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
     function transferNonWinnerDeposits(address auctionV1addr) public onlySeller {
         for(uint256 i = 0; i < participants.length; i++) {
             if(!isWinner(participants[i])) {
-              uint256 currentDeposit = deposits[participants[i]];
-              deposits[participants[i]] = 0;
-              IERC20(usdcContractAddr).transfer(auctionV1addr, currentDeposit);
-              IAuctionV1(auctionV1addr).transferDeposit(participants[i], currentDeposit);
+                uint256 currentDeposit = deposits[participants[i]];
+                deposits[participants[i]] = 0;
+                IERC20(usdcContractAddr).transfer(auctionV1addr, currentDeposit);
+                IAuctionV1(auctionV1addr).transferDeposit(participants[i], currentDeposit);
             }
         }
     }

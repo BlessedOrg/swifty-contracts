@@ -71,7 +71,8 @@ contract BlessedFactory is Ownable(msg.sender) {
             _ticketPrice: config._ticketPrice,
             _finishAt: config._finishAt,
             _usdcContractAddr: config._usdcContractAddr,
-            _multisigWalletAddress: config._multisigWalletAddress
+            _multisigWalletAddress: config._multisigWalletAddress,
+            _prevPhaseContractAddr: lotteryV1Clone
         });
         ILotteryBase(lotteryV1Clone).initialize(lotteryV1Config);
         INFTLotteryTicket(nftLotteryV1).setDepositContractAddr(lotteryV1Clone);
@@ -88,13 +89,14 @@ contract BlessedFactory is Ownable(msg.sender) {
             _ticketPrice: config._ticketPrice,
             _finishAt: config._finishAt,
             _usdcContractAddr: config._usdcContractAddr,
-            _multisigWalletAddress: config._multisigWalletAddress
+            _multisigWalletAddress: config._multisigWalletAddress,
+            _prevPhaseContractAddr: lotteryV1Clone
         });
         ILotteryBase(lotteryV2Clone).initialize(lotteryV2Config);
         INFTLotteryTicket(nftLotteryV2).setDepositContractAddr(lotteryV2Clone);
         ILotteryBase(lotteryV2Clone).setNftContractAddr(nftLotteryV2);
 
-        // Deploy AuctionV1 and link NFT
+//         Deploy AuctionV1 and link NFT
         address auctionV1Clone = Clones.clone(auctionV1);
         StructsLibrary.ILotteryBaseConfig memory auctionV1Config = StructsLibrary.ILotteryBaseConfig({
             _seller: config._seller,
@@ -105,7 +107,8 @@ contract BlessedFactory is Ownable(msg.sender) {
             _ticketPrice: config._ticketPrice,
             _finishAt: config._finishAt,
             _usdcContractAddr: config._usdcContractAddr,
-            _multisigWalletAddress: config._multisigWalletAddress
+            _multisigWalletAddress: config._multisigWalletAddress,
+            _prevPhaseContractAddr: lotteryV2Clone
         });
         ILotteryBase(auctionV1Clone).initialize(auctionV1Config);
         INFTLotteryTicket(nftAuctionV1).setDepositContractAddr(auctionV1Clone);
@@ -119,9 +122,9 @@ contract BlessedFactory is Ownable(msg.sender) {
             _ticketAmount: config._auctionV2TicketAmount,
             _ticketPrice: config._ticketPrice,
             _finishAt: config._finishAt,
-            _auctionV1Clone: auctionV1Clone,
             _usdcContractAddr: config._usdcContractAddr,
-            _multisigWalletAddress: config._multisigWalletAddress
+            _multisigWalletAddress: config._multisigWalletAddress,
+            _prevPhaseContractAddr: auctionV1Clone
         });
         IAuctionBase(auctionV2Clone).initialize(auctionV2Config);
         INFTLotteryTicket(nftAuctionV2).setDepositContractAddr(auctionV2Clone);
