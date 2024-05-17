@@ -47,6 +47,7 @@ Participants can deposit funds (USDC or other ERC20) to qualify for a lottery, w
    - Once all winners are selected, or when you decide to end the lottery, call `endLottery`.
 
 4. **Withdraw Funds:**
+
    - After the lottery ends, call `sellerWithdraw` to collect the funds from losing participants.
 
 ### As a Participant

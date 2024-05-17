@@ -17,11 +17,16 @@ contract AuctionV1Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
         seller = config._blessedOperator;
         operatorAddr = config._gelatoVrfOperator;
         _transferOwnership(config._owner);
-        numberOfTickets = config._ticketAmount;
+        totalNumberOfTickets = config._ticketAmount;
+        numberOfTickets = config._ticketPrice;
+        prevRoundTicketsAmount = config._ticketPrice;
         minimumDepositAmount = config._ticketPrice;
+        currentPrice = config._ticketPrice;
+        initialPrice = config._ticketPrice;
         finishAt = config._finishAt;
         usdcContractAddr = config._usdcContractAddr;
         multisigWalletAddress = config._multisigWalletAddress;
+        lotteryV2Addr = config._prevPhaseContractAddr;
 
         initialized = true;
     }
@@ -49,13 +54,24 @@ contract AuctionV1Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
     uint256 public minimumDepositAmount;
     uint256 public currentPrice;
     uint256 public initialPrice;
-    uint256 public prevRoundDeposits;
-    uint256 public prevRoundTicketsAmount;
-    uint256 public increasePriceStep;
+    uint256 public prevRoundDeposits = 1;
+    uint256 public prevRoundTicketsAmount = 1;
+    uint256 public increasePriceStep = 5;
     uint256 public numberOfTickets;
+    uint256 public totalNumberOfTickets;
     uint256 public randomNumber;
     address[] public eligibleParticipants;
     mapping(address => bool) public hasMinted;
+
+    struct Round {
+        uint256 number;
+        uint256 finishAt;
+        uint256 numberOfTickets;
+        bool lotteryStarted;
+        bool winnersSelected;
+    }
+    mapping(uint256 => Round) public rounds;
+    uint256 public roundCounter;
 
     mapping(address => uint256) public deposits;
     mapping(address => bool) public winners;
@@ -111,13 +127,11 @@ contract AuctionV1Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
         _;
     }
 
-    function _msgSender() internal view override(ERC2771Context, Context)
-        returns (address sender) {
+    function _msgSender() internal view override(ERC2771Context, Context) returns (address sender) {
         sender = ERC2771Context._msgSender();
     }
 
-    function _msgData() internal view override(ERC2771Context, Context)
-        returns (bytes calldata) {
+    function _msgData() internal view override(ERC2771Context, Context) returns (bytes calldata) {
         return ERC2771Context._msgData();
     }    
 
@@ -165,29 +179,42 @@ contract AuctionV1Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
     }   
 
     function setupNewRound(uint256 _finishAt, uint256 _numberOfTickets) public onlyOperator {
-      uint256 newPrice = 0;
+        require(_numberOfTickets <= totalNumberOfTickets, "Tickets per round cannot be higher than total number of tickets in AuctionV1");
+        uint256 newPrice = 0;
 
-      if(prevRoundDeposits >= numberOfTickets) {
-        // higher demand than supply, increase price
-        newPrice = currentPrice + increasePriceStep * (prevRoundDeposits / prevRoundTicketsAmount);
-      } else {
-        // lower demand than supply, decrease price
-        newPrice = currentPrice - increasePriceStep * (1 - prevRoundDeposits / prevRoundTicketsAmount);
-        if(newPrice < initialPrice) {
-          newPrice = initialPrice;
+        if (prevRoundDeposits >= numberOfTickets) {
+            // higher demand than supply, increase price
+            newPrice = currentPrice + increasePriceStep * (prevRoundDeposits / prevRoundTicketsAmount);
+        } else {
+            // lower demand than supply, decrease price
+            uint256 decreaseAmount = increasePriceStep * (1 - prevRoundDeposits / prevRoundTicketsAmount);
+            if (currentPrice > decreaseAmount) {
+                newPrice = currentPrice - decreaseAmount;
+            } else {
+                newPrice = initialPrice;
+            }
         }
-      }
+        currentPrice = newPrice;
+        setFinishAt(_finishAt);
+        prevRoundDeposits = 0;
+        numberOfTickets = _numberOfTickets;
+        prevRoundTicketsAmount = _numberOfTickets;
+        totalNumberOfTickets -= _numberOfTickets;
 
-      currentPrice = newPrice;
-      setFinishAt(_finishAt);
-      prevRoundDeposits = 0;
-      numberOfTickets = _numberOfTickets;
-      prevRoundTicketsAmount = _numberOfTickets;
-    }    
+        rounds[roundCounter] = Round({
+            number: roundCounter,
+            finishAt: _finishAt,
+            numberOfTickets: _numberOfTickets,
+            lotteryStarted: false,
+            winnersSelected: false
+        });
+
+        roundCounter++;
+    }
 
     function setNftContractAddr(address _nftContractAddr) public onlyOwner {
         nftContractAddr = _nftContractAddr;
-    }    
+    }
 
     function changeLotteryState(LotteryState _newState) public onlySeller {
         lotteryState = _newState;
@@ -251,23 +278,23 @@ contract AuctionV1Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
 
     function selectWinners() external onlySeller {
         require(numberOfTickets > 0, "No tickets left to allocate");
+        lotteryState = LotteryState.ACTIVE;
+        checkEligibleParticipants();
 
         if(numberOfTickets >= eligibleParticipants.length) {
-            // less demand than supply, no need for lottery. Everybody wins!
+            // If demand is less than or equal to supply, everyone wins
             for (uint256 i = 0; i < eligibleParticipants.length; i++) {
                 address selectedWinner = eligibleParticipants[i];
-
                 if (!isWinner(selectedWinner)) {
                     setWinner(selectedWinner);
                     emit WinnerSelected(selectedWinner);
                 }
             }
-            for (uint256 i = 0; i < eligibleParticipants.length; i++) {
-                removeParticipant(i);
-                numberOfTickets--;
-            }
+            // Clear the participants list since all are winners
+            delete eligibleParticipants;
+            numberOfTickets = 0;
         } else {
-            // shuffle array of winners
+            // Shuffle the array of participants
             for (uint j = 0; j < eligibleParticipants.length; j++) {
                 uint n = j + randomNumber % (eligibleParticipants.length - j);
                 address temp = eligibleParticipants[n];
@@ -275,22 +302,33 @@ contract AuctionV1Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
                 eligibleParticipants[j] = temp;
             }
 
-            // take the first n winners
+            // Select the first `numberOfTickets` winners
             for (uint256 i = 0; i < numberOfTickets; i++) {
                 address selectedWinner = eligibleParticipants[i];
-
                 if (!isWinner(selectedWinner)) {
                     setWinner(selectedWinner);
-                    removeParticipant(i);
-                    numberOfTickets--;
                     emit WinnerSelected(selectedWinner);
                 }
             }
+
+            // Remove the winners from the participants list by shifting non-winners up
+            uint256 shiftIndex = 0;
+            for (uint256 i = numberOfTickets; i < eligibleParticipants.length; i++) {
+                eligibleParticipants[shiftIndex] = eligibleParticipants[i];
+                shiftIndex++;
+            }
+            for (uint256 i = shiftIndex; i < eligibleParticipants.length; i++) {
+                eligibleParticipants.pop();
+            }
+
+            numberOfTickets = 0;
         }
 
-        if (numberOfTickets == 0) {
+        if (totalNumberOfTickets == 0) {
             emit LotteryEnded();
         }
+        rounds[roundCounter - 1].winnersSelected = true;
+        lotteryState = LotteryState.NOT_STARTED;
     }
 
     function setCurrentPrice(uint256 _amount) public onlySeller {
@@ -309,6 +347,7 @@ contract AuctionV1Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
     function startLottery() public onlySeller lotteryNotStarted {
         changeLotteryState(LotteryState.ACTIVE);
         checkEligibleParticipants();
+        rounds[roundCounter].lotteryStarted = true;
     }
 
     function endLottery() public onlySeller {
@@ -331,7 +370,6 @@ contract AuctionV1Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
                 if (!isWinner(participants[i])) {
                   eligibleParticipants.push(participants[i]);
                 }
-                
             }
         }
     }
@@ -384,7 +422,6 @@ contract AuctionV1Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
         deposits[_participant] += _amount;
         prevRoundDeposits += 1;
     }
-
 
     function transferNonWinnerBids(address destinationAddr) public onlySeller {
         for(uint256 i = 0; i < participants.length; i++) {
