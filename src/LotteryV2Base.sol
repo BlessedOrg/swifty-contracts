@@ -5,6 +5,7 @@ import {Ownable} from "../lib/openzeppelin-contracts/contracts/access/Ownable.so
 import {GelatoVRFConsumerBase} from "../lib/vrf-contracts/contracts/GelatoVRFConsumerBase.sol";
 import {ERC2771Context} from "../lib/relay-context-contracts/contracts/vendor/ERC2771Context.sol";
 import {Context} from "../lib/openzeppelin-contracts/contracts/utils/Context.sol";
+import {DigitExtractor} from "./vendor/DigitExtractor.sol";
 import "src/vendor/StructsLibrary.sol";
 import "src/interfaces/INFTLotteryTicket.sol";
 import "src/interfaces/IERC20.sol";
@@ -118,7 +119,6 @@ contract LotteryV2Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
 
     function setRandomNumber() public onlySeller() {
         require(randomNumber == 0, "Random number already set");
-
         randomNumber = getRandomNumber();
     }
 
@@ -134,13 +134,15 @@ contract LotteryV2Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
 
     function _fulfillRandomness(uint256 randomness, uint256, bytes memory extraData) internal override {
         address requestedBy = abi.decode(extraData, (address));
+        uint256 _randomNumber = DigitExtractor.extractFirst14Digits(randomness);
 
         if(requestedBy == seller) {
-            randomNumber = randomness;
+            randomNumber = _randomNumber;
         } else {
-            rolledNumbers[requestedBy] = randomness;
+            rolledNumbers[requestedBy] = _randomNumber;
+            claimNumber(requestedBy);
         }
-        emit RandomFullfiled(requestedBy, randomness);
+        emit RandomFullfiled(requestedBy, _randomNumber);
     }
 
     function deposit(uint256 amount) public whenLotteryNotActive {
@@ -265,6 +267,7 @@ contract LotteryV2Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
     }
 
     function setRollTolerance(uint256 _tolerance) public onlySeller() {
+        require(_tolerance >= 1 && _tolerance <= 99, "Tolerance percentage must be between 1 and 99");
         rollTolerance = _tolerance;
     }
 
@@ -280,7 +283,11 @@ contract LotteryV2Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
     }
 
     function isClaimable(address _participant) public view returns (bool) {
-        if(deposits[_participant] >= minimumDepositAmount && randomNumber + rollTolerance >= rolledNumbers[_participant] && randomNumber - rollTolerance <= rolledNumbers[_participant]) {
+        uint256 lowerLimit = rolledNumbers[_participant] - ((rolledNumbers[_participant] * rollTolerance / 100));
+        uint256 upperLimit = rolledNumbers[_participant] + ((rolledNumbers[_participant] * rollTolerance / 100));
+        bool isWithinTolerance = (randomNumber >= lowerLimit) && (randomNumber <= upperLimit);
+
+        if (deposits[_participant] >= minimumDepositAmount && isWithinTolerance) {
             return true;
         }
         return false;
