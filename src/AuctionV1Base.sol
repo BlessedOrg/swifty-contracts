@@ -117,11 +117,6 @@ contract AuctionV1Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
         _;
     }
 
-    modifier hasNotMinted() {
-        require(!hasMinted[_msgSender()], "NFT already minted");
-        _;
-    }
-
     modifier whenLotteryNotActive() {
         require(lotteryState != LotteryState.ACTIVE, "Lottery is currently active");
         _;
@@ -395,10 +390,11 @@ contract AuctionV1Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
         return false;
     }
 
-    function mintMyNFT() public hasNotMinted lotteryEnded {
+    function mintMyNFT() public {
         require(isWinner(_msgSender()), "Caller is not a winner");
-        hasMinted[_msgSender()] = true;
+        require(!hasMinted[_msgSender()], "NFT already minted");
         INFTLotteryTicket(nftContractAddr).lotteryMint(_msgSender());
+        hasMinted[_msgSender()] = true;
     }
 
     function setUsdcContractAddr(address _usdcContractAddr) public onlyOwner {
