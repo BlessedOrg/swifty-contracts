@@ -72,7 +72,6 @@ contract AuctionV1Test is Test {
             _auctionV1TicketAmount: 123,
             _auctionV2TicketAmount: 123,
             _ticketPrice: 100,
-            _finishAt: 100,
             _uri: "https://api.example.com/v1/",
             _usdcContractAddr: address(usdcToken),
             _multisigWalletAddress: multisigWallet
@@ -88,7 +87,6 @@ contract AuctionV1Test is Test {
         // Deploy the USDC token contract
         usdcToken = new USDC("USDC", "USDC", 6, 1000000000000000000000000, 1000000000000000000000000);
         auction.setUsdcContractAddr(address(usdcToken));
-        auction.setFinishAt(vm.unixTime() + 100000);
 
         // Set the multisig wallet address in the Deposit contract
         auction.setMultisigWalletAddress(multisigWallet);
@@ -132,7 +130,6 @@ contract AuctionV1Test is Test {
         vm.stopPrank();
 
         vm.startPrank(seller);
-        auction.setFinishAt(0);
         vm.stopPrank();
 
         vm.startPrank(user);
@@ -490,7 +487,6 @@ contract AuctionV1Test is Test {
         vm.startPrank(seller);
         LotteryV2 lotteryV2 = new LotteryV2(seller, operator);
         lotteryV2.setUsdcContractAddr(address(usdcToken));
-        lotteryV2.setFinishAt(vm.unixTime() + 100000);
         vm.stopPrank();
 
         vm.startPrank(max);

@@ -43,7 +43,6 @@ contract BlessedFactory is Ownable(msg.sender) {
         uint256 _auctionV1TicketAmount;
         uint256 _auctionV2TicketAmount;
         uint256 _ticketPrice;
-        uint256 _finishAt;
         string _uri;
         address _usdcContractAddr;
         address _multisigWalletAddress;
@@ -69,7 +68,6 @@ contract BlessedFactory is Ownable(msg.sender) {
             _owner: address(this),
             _ticketAmount: config._lotteryV1TicketAmount,
             _ticketPrice: config._ticketPrice,
-            _finishAt: config._finishAt,
             _usdcContractAddr: config._usdcContractAddr,
             _multisigWalletAddress: config._multisigWalletAddress,
             _prevPhaseContractAddr: lotteryV1Clone
@@ -87,7 +85,6 @@ contract BlessedFactory is Ownable(msg.sender) {
             _owner: address(this),
             _ticketAmount: config._lotteryV2TicketAmount,
             _ticketPrice: config._ticketPrice,
-            _finishAt: config._finishAt,
             _usdcContractAddr: config._usdcContractAddr,
             _multisigWalletAddress: config._multisigWalletAddress,
             _prevPhaseContractAddr: lotteryV1Clone
@@ -105,7 +102,6 @@ contract BlessedFactory is Ownable(msg.sender) {
             _owner: address(this),
             _ticketAmount: config._auctionV1TicketAmount,
             _ticketPrice: config._ticketPrice,
-            _finishAt: config._finishAt,
             _usdcContractAddr: config._usdcContractAddr,
             _multisigWalletAddress: config._multisigWalletAddress,
             _prevPhaseContractAddr: lotteryV2Clone
@@ -121,7 +117,6 @@ contract BlessedFactory is Ownable(msg.sender) {
             _owner: address(this),
             _ticketAmount: config._auctionV2TicketAmount,
             _ticketPrice: config._ticketPrice,
-            _finishAt: config._finishAt,
             _usdcContractAddr: config._usdcContractAddr,
             _multisigWalletAddress: config._multisigWalletAddress,
             _prevPhaseContractAddr: auctionV1Clone

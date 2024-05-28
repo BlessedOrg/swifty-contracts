@@ -17,7 +17,6 @@ contract AuctionV2Base is Ownable(msg.sender), ERC2771Context(0xd8253782c45a1205
         numberOfTickets = config._ticketAmount;
         minimumDepositAmount = config._ticketPrice;
         initialPrice = config._ticketPrice;
-        finishAt = config._finishAt;
         usdcContractAddr = config._usdcContractAddr;
         multisigWalletAddress = config._multisigWalletAddress;
         auctionV1Addr = config._prevPhaseContractAddr;
@@ -55,13 +54,11 @@ contract AuctionV2Base is Ownable(msg.sender), ERC2771Context(0xd8253782c45a1205
     mapping(address => bool) public winners;
     mapping(address => bool) public operators;
     address[] public winnerAddresses;
-    address[] public participants;
+    address[] private participants;
 
     address public nftContractAddr;
     address public usdcContractAddr;
     address public auctionV1Addr;
-
-    uint256 public finishAt;
 
     event LotteryStarted();
     event WinnerSelected(address indexed winner);
@@ -122,9 +119,8 @@ contract AuctionV2Base is Ownable(msg.sender), ERC2771Context(0xd8253782c45a1205
         return false;
     }    
 
-    function deposit(uint256 amount) public payable {
+    function deposit(uint256 amount) public payable lotteryStarted {
         require(!isWinner(_msgSender()), "Winners cannot deposit");
-        require(finishAt > block.timestamp, "Deposits are not possible anymore");
         require(usdcContractAddr != address(0), "USDC contract address not set");
         require(amount >= initialPrice, "Insufficient funds sent");
         require(amount > 0, "No funds sent");
@@ -275,7 +271,7 @@ contract AuctionV2Base is Ownable(msg.sender), ERC2771Context(0xd8253782c45a1205
         return deposits[participant].amount;
     }
 
-    function mintMyNFT() public hasNotMinted lotteryEnded {
+    function mintMyNFT() public hasNotMinted {
         require(numberOfTickets > 0, "No tickets left to allocate");
         require(isWinner(_msgSender()), "Caller is not a winner");
 
@@ -286,10 +282,6 @@ contract AuctionV2Base is Ownable(msg.sender), ERC2771Context(0xd8253782c45a1205
 
     function setUsdcContractAddr(address _usdcContractAddr) public onlyOwner {
         usdcContractAddr = _usdcContractAddr;
-    }
-
-    function setFinishAt(uint _finishAt) public onlyOperator() {
-        finishAt = _finishAt;
     }
 
     function setAuctionV1Addr(address _auctionV1Addr) public onlyOperator() {

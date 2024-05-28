@@ -50,7 +50,6 @@ contract BlessedFactoryTest is Test {
             _auctionV1TicketAmount: 123,
             _auctionV2TicketAmount: 123,
             _ticketPrice: 100,
-            _finishAt: 100,
             _uri: "https://api.example.com/v1/",
             _usdcContractAddr: seller,
             _multisigWalletAddress: vm.addr(multisigWalletPrivateKey)

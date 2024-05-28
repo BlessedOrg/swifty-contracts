@@ -23,7 +23,6 @@ contract AuctionV1Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
         minimumDepositAmount = config._ticketPrice;
         currentPrice = config._ticketPrice;
         initialPrice = config._ticketPrice;
-        finishAt = config._finishAt;
         usdcContractAddr = config._usdcContractAddr;
         multisigWalletAddress = config._multisigWalletAddress;
         lotteryV2Addr = config._prevPhaseContractAddr;
@@ -83,8 +82,6 @@ contract AuctionV1Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
     address public usdcContractAddr;
     address public lotteryV2Addr;
 
-    uint256 public finishAt;
-
     event LotteryStarted();
     event WinnerSelected(address indexed winner);
     event LotteryEnded();
@@ -136,7 +133,6 @@ contract AuctionV1Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
 
     function deposit(uint256 amount) public payable {
         require(!isWinner(_msgSender()), "Winners cannot deposit");
-        require(finishAt > block.timestamp, "Deposits are not possible anymore");
         require(usdcContractAddr != address(0), "USDC contract address not set");
         require(amount > 0, "No funds sent");
         require(
@@ -190,7 +186,6 @@ contract AuctionV1Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
             }
         }
         currentPrice = newPrice;
-        setFinishAt(_finishAt);
         prevRoundDeposits = 0;
         numberOfTickets = _numberOfTickets;
         prevRoundTicketsAmount = _numberOfTickets;
@@ -399,10 +394,6 @@ contract AuctionV1Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
 
     function setUsdcContractAddr(address _usdcContractAddr) public onlyOwner {
         usdcContractAddr = _usdcContractAddr;
-    }
-
-    function setFinishAt(uint _finishAt) public onlyOperator() {
-        finishAt = _finishAt;
     }
 
     function setLotteryV2Addr(address _lotteryV2Addr) public onlySeller {
