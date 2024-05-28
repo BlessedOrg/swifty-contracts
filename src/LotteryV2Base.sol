@@ -19,7 +19,6 @@ contract LotteryV2Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
         _transferOwnership(config._owner);
         numberOfTickets = config._ticketAmount;
         minimumDepositAmount = config._ticketPrice;
-        finishAt = config._finishAt;
         usdcContractAddr = config._usdcContractAddr;
         multisigWalletAddress = config._multisigWalletAddress;
         lotteryV1Addr = config._prevPhaseContractAddr;
@@ -31,13 +30,13 @@ contract LotteryV2Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
         seller = _seller;
     }
 
+    bool public initialized = false;
+
     enum LotteryState {
         NOT_STARTED,
         ACTIVE,
         ENDED
     }
-
-    bool public initialized = false;
 
     LotteryState public lotteryState;
 
@@ -60,8 +59,6 @@ contract LotteryV2Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
     address public nftContractAddr;
     address public usdcContractAddr;
     address public lotteryV1Addr;
-
-    uint256 public finishAt;
 
     mapping(address => uint256) public rolledNumbers;
     uint256 public rollPrice;
@@ -136,7 +133,7 @@ contract LotteryV2Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
         address requestedBy = abi.decode(extraData, (address));
         uint256 _randomNumber = DigitExtractor.extractFirst14Digits(randomness);
 
-        if(requestedBy == seller) {
+        if (requestedBy == seller) {
             randomNumber = _randomNumber;
         } else {
             rolledNumbers[requestedBy] = _randomNumber;
@@ -145,8 +142,7 @@ contract LotteryV2Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
         emit RandomFullfiled(requestedBy, _randomNumber);
     }
 
-    function deposit(uint256 amount) public whenLotteryNotActive {
-        require(finishAt > block.timestamp, "Deposits are not possible anymore");
+    function deposit(uint256 amount) public lotteryStarted {
         require(usdcContractAddr != address(0), "USDC contract address not set");
         require(amount > 0, "No funds sent");
         require(
@@ -156,12 +152,12 @@ contract LotteryV2Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
 
         IERC20(usdcContractAddr).transferFrom(_msgSender(), address(this), amount);
 
-        if(deposits[_msgSender()] == 0) {
+        if (deposits[_msgSender()] == 0) {
             participants.push(_msgSender());
         }
         deposits[_msgSender()] += amount;
 
-        if(rolledNumbers[_msgSender()] == 0) {
+        if (rolledNumbers[_msgSender()] == 0) {
             _requestRandomness(abi.encode(_msgSender()));
             emit RandomRequested(_msgSender());
         }
@@ -249,7 +245,7 @@ contract LotteryV2Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
         return deposits[participant];
     }
 
-    function mintMyNFT() public hasNotMinted lotteryEnded {
+    function mintMyNFT() public hasNotMinted {
         require(isWinner(_msgSender()), "Caller is not a winner");
         require(mintCount < maxMints, "No more mints available");
 
@@ -271,8 +267,7 @@ contract LotteryV2Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
         rollTolerance = _tolerance;
     }
 
-    function roll() public {
-        require(finishAt > block.timestamp, "Rolling is not possible anymore");
+    function roll() public lotteryStarted {
         require(rollPrice > 0, "No roll price set");
         require(deposits[_msgSender()] >= rollPrice + minimumDepositAmount, "Insufficient funds");
 
@@ -308,26 +303,22 @@ contract LotteryV2Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
         lotteryV1Addr = _lotteryV1Addr;
     }
 
-    function setFinishAt(uint _finishAt) public onlySeller {
-        finishAt = _finishAt;
-    }
-
     function transferDeposit(address _participant, uint256 _amount) public {
         require(lotteryV1Addr == _msgSender(), "Only whitelisted may call this function");
 
-        if(deposits[_participant] == 0) {
+        if (deposits[_participant] == 0) {
             participants.push(_participant);
         }
         deposits[_participant] += _amount;
 
-        if(rolledNumbers[_participant] == 0) {
+        if (rolledNumbers[_participant] == 0) {
             _requestRandomness(abi.encode(_participant));
         }
     }
 
     function transferNonWinnerDeposits(address auctionV1addr) public onlySeller {
-        for(uint256 i = 0; i < participants.length; i++) {
-            if(!isWinner(participants[i])) {
+        for (uint256 i = 0; i < participants.length; i++) {
+            if (!isWinner(participants[i])) {
                 uint256 currentDeposit = deposits[participants[i]];
                 deposits[participants[i]] = 0;
                 IERC20(usdcContractAddr).transfer(auctionV1addr, currentDeposit);

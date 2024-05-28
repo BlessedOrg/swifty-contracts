@@ -41,7 +41,7 @@ contract LotteryTest is Test {
         AuctionV2Base auctionV2Base = new AuctionV2Base();
         blessedFactory = new BlessedFactory();
         blessedFactory.setBaseContracts(
-            address(nftLotteryTicket), 
+            address(nftLotteryTicket),
             address(lotteryBase),
             address(lotteryV2Base),
             address(auctionV1Base),
@@ -58,7 +58,6 @@ contract LotteryTest is Test {
             _auctionV1TicketAmount: 123,
             _auctionV2TicketAmount: 123,
             _ticketPrice: 100,
-            _finishAt: 100,
             _uri: "https://api.example.com/v1/",
             _usdcContractAddr: seller,
             _multisigWalletAddress: multisigWallet
@@ -73,7 +72,6 @@ contract LotteryTest is Test {
         // Deploy the USDC token contract
         usdcToken = new USDC("USDC", "USDC", 6, 1000000000000000000000000, 1000000000000000000000000);
         lottery.setUsdcContractAddr(address(usdcToken));
-        lottery.setFinishAt(vm.unixTime() + 100000);
 
         // Set the multisig wallet address in the Deposit contract
         lottery.setMultisigWalletAddress(multisigWallet);
@@ -104,29 +102,6 @@ contract LotteryTest is Test {
         vm.stopPrank();
     }
 
-    function test_DepositTimeConstraint() public {
-        uint256 depositAmount = 10000;
-        address user = address(3); // Example user address
-
-
-        provideUsdc(user, depositAmount); // Provide 10000 usdc to the user
-
-        vm.startPrank(user);
-        lottery.deposit(100);
-        assertEq(lottery.deposits(user), 100, "Deposit amount should be recorded correctly");
-        vm.stopPrank();
-
-        vm.startPrank(seller);
-        lottery.setFinishAt(0);
-        vm.stopPrank();
-
-        vm.startPrank(user);
-        vm.expectRevert("Deposits are not possible anymore");
-        lottery.deposit(100);
-        vm.stopPrank();
-
-    }    
-
     function test_ChangeLotteryState() public {
         vm.prank(seller);
         lottery.changeLotteryState(LotteryV1Base.LotteryState.ACTIVE);
@@ -143,7 +118,7 @@ contract LotteryTest is Test {
         address nonWinner = address(4); // Example non-winner address
         uint256 depositAmount = 10000;
 
-        provideUsdc(nonWinner, depositAmount); 
+        provideUsdc(nonWinner, depositAmount);
         // Non-winner deposits funds
         vm.startPrank(nonWinner);
         lottery.deposit(depositAmount);
@@ -189,7 +164,7 @@ contract LotteryTest is Test {
 
         // Setup: Winner deposits and is set as a winner
         provideUsdc(winner, winnerDeposit);
-        
+
         vm.startPrank(winner);
         lottery.deposit(winnerDeposit);
         vm.stopPrank();
@@ -346,7 +321,7 @@ contract LotteryTest is Test {
         lottery.endLottery();
         vm.stopPrank();
         assertEq(lottery.isWinner(user), true, "user should be winner");
-        
+
         vm.startPrank(user);
         lottery.mintMyNFT();
         assertEq(nftLotteryTicket.balanceOf(user, 1), 1, "Joe must own NFT#1");
@@ -365,7 +340,7 @@ contract LotteryTest is Test {
         vm.stopPrank();
 
         provideUsdc(joe, depositAmount);
-        vm.startPrank(joe); 
+        vm.startPrank(joe);
         lottery.deposit(depositAmount);
         vm.stopPrank();
 
@@ -388,7 +363,7 @@ contract LotteryTest is Test {
         lottery.mintMyNFT();
         assertEq(nftLotteryTicket.balanceOf(user, 1), 1, "Joe must own NFT#1");
         vm.stopPrank();
-    }    
+    }
 
     function test_moreDemand() public {
         address user = address(3);
@@ -456,7 +431,7 @@ contract LotteryTest is Test {
         bytes memory data = abi.encode(address(seller));
         bytes memory dataWithRound = abi.encode(roundId, abi.encode(requestId, data));
         vm.expectRevert("only operator");
-        lottery.fulfillRandomness(randomness, dataWithRound);       
+        lottery.fulfillRandomness(randomness, dataWithRound);
         vm.stopPrank();
-    }    
+    }
 }

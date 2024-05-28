@@ -9,7 +9,6 @@ contract StructsLibrary {
         address _owner;
         uint256 _ticketAmount;
         uint256 _ticketPrice;
-        uint256 _finishAt;
         address _usdcContractAddr;
         address _multisigWalletAddress;
         address _prevPhaseContractAddr;
@@ -20,7 +19,6 @@ contract StructsLibrary {
         address _owner;
         uint256 _ticketAmount;
         uint256 _ticketPrice;
-        uint256 _finishAt;
         address _usdcContractAddr;
         address _multisigWalletAddress;
         address _prevPhaseContractAddr;
