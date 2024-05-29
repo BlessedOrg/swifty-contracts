@@ -24,9 +24,7 @@ contract LotteryV1Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
         initialized = true;
     }
 
-    function setSeller(address _seller) external onlySeller {
-        seller = _seller;
-    }
+    bool public initialized = false;
 
     enum LotteryState {
         NOT_STARTED,
@@ -35,8 +33,6 @@ contract LotteryV1Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
         VRF_REQUESTED,
         VRF_COMPLETED
     }
-
-    bool public initialized = false;
 
     LotteryState public lotteryState;
 
@@ -94,13 +90,15 @@ contract LotteryV1Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
         _;
     }
 
-    function _msgSender() internal view override(ERC2771Context, Context)
-    returns (address sender) {
+    function setSeller(address _seller) external onlySeller {
+        seller = _seller;
+    }
+
+    function _msgSender() internal view override(ERC2771Context, Context) returns (address sender) {
         sender = ERC2771Context._msgSender();
     }
 
-    function _msgData() internal view override(ERC2771Context, Context)
-    returns (bytes calldata) {
+    function _msgData() internal view override(ERC2771Context, Context) returns (bytes calldata) {
         return ERC2771Context._msgData();
     }
 
@@ -118,7 +116,7 @@ contract LotteryV1Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
 
         IERC20(usdcContractAddr).transferFrom(_msgSender(), address(this), amount);
 
-        if(deposits[_msgSender()] == 0) {
+        if (deposits[_msgSender()] == 0) {
             participants.push(_msgSender());
         }
         deposits[_msgSender()] += amount;
@@ -152,12 +150,12 @@ contract LotteryV1Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
         return winnerAddresses;
     }
 
-    function setWinner(address _winner) public onlySeller {
+    function setWinner(address _winner) internal {
         winners[_winner] = true;
         winnerAddresses.push(_winner);
     }
 
-    function buyerWithdraw() public whenLotteryNotActive {
+    function buyerWithdraw() public lotteryEnded {
         require(!winners[_msgSender()], "Winners cannot withdraw");
 
         uint256 amount = deposits[_msgSender()];
@@ -195,8 +193,9 @@ contract LotteryV1Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
         emit RandomFullfiled(randomness);
     }
 
-    function selectWinners() external onlySeller {
+    function selectWinners() external onlySeller lotteryStarted {
         require(numberOfTickets > 0, "No tickets left to allocate");
+        checkEligibleParticipants();
 
         if(numberOfTickets >= eligibleParticipants.length) {
             // If demand is less than or equal to supply, everyone wins
@@ -243,6 +242,7 @@ contract LotteryV1Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
 
         if (numberOfTickets == 0) {
             emit LotteryEnded();
+            lotteryState = LotteryState.ENDED;
         }
     }
 
@@ -257,7 +257,6 @@ contract LotteryV1Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
 
     function startLottery() public onlySeller lotteryNotStarted {
         changeLotteryState(LotteryState.ACTIVE);
-        checkEligibleParticipants();
     }
 
     function endLottery() public onlySeller {

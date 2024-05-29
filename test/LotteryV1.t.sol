@@ -169,7 +169,6 @@ contract LotteryTest is Test {
         lottery.deposit(winnerDeposit);
         vm.stopPrank();
         vm.prank(seller);
-        lottery.setWinner(winner);
 
         // End the lottery and process the withdrawal
         vm.prank(seller);
@@ -194,7 +193,6 @@ contract LotteryTest is Test {
 
         // Set as winner and try to withdraw
         vm.prank(seller);
-        lottery.setWinner(winner);
         vm.prank(seller);
         lottery.changeLotteryState(LotteryV1Base.LotteryState.ENDED);
         vm.startPrank(winner);
@@ -227,7 +225,6 @@ contract LotteryTest is Test {
         // Mark some participants as winners (e.g., first two)
         for (uint256 i = 0; i < 2; i++) {
             vm.prank(seller);
-            lottery.setWinner(participants[i]);
         }
 
         // Ensure winners cannot withdraw

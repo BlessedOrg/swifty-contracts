@@ -24,6 +24,8 @@ contract AuctionV2Base is Ownable(msg.sender), ERC2771Context(0xd8253782c45a1205
         initialized = true;
     }
 
+    bool public initialized = false;
+
     enum LotteryState {
         NOT_STARTED,
         ACTIVE,
@@ -32,15 +34,13 @@ contract AuctionV2Base is Ownable(msg.sender), ERC2771Context(0xd8253782c45a1205
         VRF_COMPLETED
     }
 
+    LotteryState public lotteryState;
+
     struct Deposit {
       uint256 amount;
       uint256 timestamp;
       bool isWinner;
     }
-
-    bool public initialized = false;
-
-    LotteryState public lotteryState;
 
     address public multisigWalletAddress;
     address public seller;

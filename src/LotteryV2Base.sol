@@ -10,6 +10,7 @@ import "src/vendor/StructsLibrary.sol";
 import "src/interfaces/INFTLotteryTicket.sol";
 import "src/interfaces/IERC20.sol";
 import "src/interfaces/IAuctionV1.sol";
+import "src/interfaces/ILotteryV1.sol";
 
 contract LotteryV2Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Context(0xd8253782c45a12053594b9deB72d8e8aB2Fca54c) {
     function initialize(StructsLibrary.ILotteryBaseConfig memory config) public {
@@ -24,10 +25,6 @@ contract LotteryV2Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
         lotteryV1Addr = config._prevPhaseContractAddr;
 
         initialized = true;
-    }
-
-    function setSeller(address _seller) external onlySeller {
-        seller = _seller;
     }
 
     bool public initialized = false;
@@ -100,13 +97,20 @@ contract LotteryV2Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
         _;
     }
 
-    function _msgSender() internal view override(ERC2771Context, Context)
-    returns (address sender) {
+    modifier hasNotWonInLotteryV1(address participant) {
+        require(!ILotteryV1(lotteryV1Addr).isWinner(participant), "Participant has already won in LotteryV1");
+        _;
+    }
+
+    function setSeller(address _seller) external onlySeller {
+        seller = _seller;
+    }
+
+    function _msgSender() internal view override(ERC2771Context, Context) returns (address sender) {
         sender = ERC2771Context._msgSender();
     }
 
-    function _msgData() internal view override(ERC2771Context, Context)
-    returns (bytes calldata) {
+    function _msgData() internal view override(ERC2771Context, Context) returns (bytes calldata) {
         return ERC2771Context._msgData();
     }
 
@@ -142,7 +146,7 @@ contract LotteryV2Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
         emit RandomFullfiled(requestedBy, _randomNumber);
     }
 
-    function deposit(uint256 amount) public lotteryStarted {
+    function deposit(uint256 amount) public lotteryStarted hasNotWonInLotteryV1(_msgSender()) {
         require(usdcContractAddr != address(0), "USDC contract address not set");
         require(amount > 0, "No funds sent");
         require(
@@ -245,7 +249,7 @@ contract LotteryV2Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
         return deposits[participant];
     }
 
-    function mintMyNFT() public hasNotMinted {
+    function mintMyNFT() public hasNotMinted hasNotWonInLotteryV1(_msgSender()) {
         require(isWinner(_msgSender()), "Caller is not a winner");
         require(mintCount < maxMints, "No more mints available");
 
