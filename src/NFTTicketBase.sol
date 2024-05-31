@@ -5,16 +5,21 @@ import { ERC1155 } from "../lib/openzeppelin-contracts/contracts/token/ERC1155/E
 import { Ownable } from "../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
 
 contract NFTTicketBase is ERC1155("uri"), Ownable(msg.sender) {
-    function initialize(string memory uri, bool _isTransferable, address _owner) public {
+    function initialize(string memory uri, bool _isTransferable, address _owner, string calldata _name, string calldata _symbol) public {
         require(initialized == false, "Already initialized");
 
         _transferOwnership(_owner);
         _setURI(uri);
         isTransferable = _isTransferable;
+        name = _name;
+        symbol = _symbol;
         initialized = true;
     }
 
     bool public initialized = false;
+
+    string public name = "NFT Ticket";
+    string public symbol = "TCKT";
     uint256 public nextTokenId = 1;
     address public depositContractAddr;
     bool public isTransferable;

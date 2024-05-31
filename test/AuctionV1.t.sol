@@ -39,6 +39,8 @@ contract AuctionV1Test is Test {
         uint256 _finishAt;
         string _uri;
         address _usdcContractAddr;
+        string _name;
+        string _symbol;
     }
 
     function setUp() public {
@@ -74,7 +76,9 @@ contract AuctionV1Test is Test {
             _ticketPrice: 100,
             _uri: "https://api.example.com/v1/",
             _usdcContractAddr: address(usdcToken),
-            _multisigWalletAddress: multisigWallet
+            _multisigWalletAddress: multisigWallet,
+            _name: "NFT Ticket",
+            _symbol: "TCKT"
         });
 
         blessedFactory.createSale(config);

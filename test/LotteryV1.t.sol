@@ -60,7 +60,9 @@ contract LotteryTest is Test {
             _ticketPrice: 100,
             _uri: "https://api.example.com/v1/",
             _usdcContractAddr: seller,
-            _multisigWalletAddress: multisigWallet
+            _multisigWalletAddress: multisigWallet,
+            _name: "NFT Ticket",
+            _symbol: "TCKT"
         });
 
         blessedFactory.createSale(config);

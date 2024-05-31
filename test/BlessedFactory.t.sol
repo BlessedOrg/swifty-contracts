@@ -52,7 +52,9 @@ contract BlessedFactoryTest is Test {
             _ticketPrice: 100,
             _uri: "https://api.example.com/v1/",
             _usdcContractAddr: seller,
-            _multisigWalletAddress: vm.addr(multisigWalletPrivateKey)
+            _multisigWalletAddress: vm.addr(multisigWalletPrivateKey),
+            _name: "NFT Ticket",
+            _symbol: "TCKT"
         });
 
         blessedFactory.createSale(config);
