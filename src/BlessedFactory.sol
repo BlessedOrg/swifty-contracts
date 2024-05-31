@@ -46,18 +46,20 @@ contract BlessedFactory is Ownable(msg.sender) {
         string _uri;
         address _usdcContractAddr;
         address _multisigWalletAddress;
+        string _name;
+        string _symbol;
     }
 
     function createSale(SaleConfig memory config) external {
         // deploy NFT contracts per each sale option
         address nftLotteryV1 = Clones.clone(nftTicket);
-        INFTLotteryTicket(nftLotteryV1).initialize(config._uri, false, address(this));
+        INFTLotteryTicket(nftLotteryV1).initialize(config._uri, false, address(this), config._name, config._symbol);
         address nftLotteryV2 = Clones.clone(nftTicket);
-        INFTLotteryTicket(nftLotteryV2).initialize(config._uri, false, address(this));
+        INFTLotteryTicket(nftLotteryV2).initialize(config._uri, false, address(this), config._name, config._symbol);
         address nftAuctionV1 = Clones.clone(nftTicket);
-        INFTLotteryTicket(nftAuctionV1).initialize(config._uri, true, address(this));
+        INFTLotteryTicket(nftAuctionV1).initialize(config._uri, true, address(this), config._name, config._symbol);
         address nftAuctionV2 = Clones.clone(nftTicket);
-        INFTLotteryTicket(nftAuctionV2).initialize(config._uri, true, address(this));
+        INFTLotteryTicket(nftAuctionV2).initialize(config._uri, true, address(this), config._name, config._symbol);
 
         // Deploy LotteryV1 and link NFT
         address lotteryV1Clone = Clones.clone(lotteryV1);
