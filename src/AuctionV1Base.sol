@@ -30,9 +30,7 @@ contract AuctionV1Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
         initialized = true;
     }
 
-    function setSeller(address _seller) external onlySeller {
-        seller = _seller;
-    }
+    bool public initialized = false;
 
     enum LotteryState {
         NOT_STARTED,
@@ -41,8 +39,6 @@ contract AuctionV1Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
         VRF_REQUESTED,
         VRF_COMPLETED
     }
-
-    bool public initialized = false;
 
     LotteryState public lotteryState;
 
@@ -119,6 +115,10 @@ contract AuctionV1Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
         _;
     }
 
+    function setSeller(address _seller) external onlySeller {
+        seller = _seller;
+    }
+
     function _msgSender() internal view override(ERC2771Context, Context) returns (address sender) {
         sender = ERC2771Context._msgSender();
     }
@@ -129,7 +129,7 @@ contract AuctionV1Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
 
     function _operator() internal view override returns (address) {
         return operatorAddr;
-    }    
+    }
 
     function deposit(uint256 amount) public payable {
         require(!isWinner(_msgSender()), "Winners cannot deposit");
