@@ -43,8 +43,6 @@ contract LotteryV2Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
 
     uint256 public minimumDepositAmount;
     uint256 public numberOfTickets;
-    uint256 public maxMints;
-    uint256 public mintCount;
     uint256 public randomNumber;
     mapping(address => bool) public hasMinted;
 
@@ -231,8 +229,6 @@ contract LotteryV2Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
     function setNumberOfTickets(uint256 _numberOfTickets) public onlySeller {
         require(_numberOfTickets > 0, "Number of tickets must be greater than zero");
         numberOfTickets = _numberOfTickets;
-        maxMints = _numberOfTickets;
-        mintCount = 0;
     }
 
     function startLottery() public onlySeller lotteryNotStarted {
@@ -251,11 +247,8 @@ contract LotteryV2Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
 
     function mintMyNFT() public hasNotMinted hasNotWonInLotteryV1(_msgSender()) {
         require(isWinner(_msgSender()), "Caller is not a winner");
-        require(mintCount < maxMints, "No more mints available");
-
         hasMinted[_msgSender()] = true;
         INFTLotteryTicket(nftContractAddr).lotteryMint(_msgSender());
-        mintCount++;
     }
 
     function setUsdcContractAddr(address _usdcContractAddr) public onlyOwner {

@@ -411,16 +411,13 @@ contract AuctionV1Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
     }
 
     function transferNonWinnerBids(address destinationAddr) public onlySeller {
-        for(uint256 i = 0; i < participants.length; i++) {
-            uint256 currentDeposit = deposits[participants[i]];
-            deposits[participants[i]] = 0;
+        for (uint256 i = 0; i < eligibleParticipants.length; i++) {
+            uint256 currentDeposit = deposits[eligibleParticipants[i]];
+            deposits[eligibleParticipants[i]] = 0;
             IERC20(usdcContractAddr).transfer(destinationAddr, currentDeposit);
-            IAuctionV2(destinationAddr).transferDeposit(participants[i], currentDeposit);
-
-            if (i < participants.length - 1) {
-                participants[i] = participants[participants.length - 1];
-            }
-            participants.pop();
+            IAuctionV2(destinationAddr).transferDeposit(eligibleParticipants[i], currentDeposit);
         }
+        delete eligibleParticipants;
     }
+
 }

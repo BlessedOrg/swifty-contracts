@@ -312,16 +312,12 @@ contract LotteryV1Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
     }
 
     function transferNonWinnerDeposits(address lotteryV2addr) public onlySeller {
-        for(uint256 i = 0; i < participants.length; i++) {
-            uint256 currentDeposit = deposits[participants[i]];
-            deposits[participants[i]] = 0;
+        for (uint256 i = 0; i < eligibleParticipants.length; i++) {
+            uint256 currentDeposit = deposits[eligibleParticipants[i]];
+            deposits[eligibleParticipants[i]] = 0;
             IERC20(usdcContractAddr).transfer(lotteryV2addr, currentDeposit);
-            ILotteryV2(lotteryV2addr).transferDeposit(participants[i], currentDeposit);
-
-            if (i < participants.length - 1) {
-                participants[i] = participants[participants.length - 1];
-            }
-            participants.pop();
+            ILotteryV2(lotteryV2addr).transferDeposit(eligibleParticipants[i], currentDeposit);
         }
+        delete eligibleParticipants;
     }
 }
