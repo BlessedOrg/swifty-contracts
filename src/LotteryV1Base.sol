@@ -109,10 +109,7 @@ contract LotteryV1Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
     function deposit(uint256 amount) public payable lotteryStarted {
         require(usdcContractAddr != address(0), "USDC contract address not set");
         require(amount > 0, "No funds sent");
-        require(
-            IERC20(usdcContractAddr).allowance(_msgSender(), address(this)) >= amount,
-            "Insufficient allowance"
-        );
+        require(IERC20(usdcContractAddr).allowance(_msgSender(), address(this)) >= amount, "Insufficient allowance");
 
         IERC20(usdcContractAddr).transferFrom(_msgSender(), address(this), amount);
 
@@ -303,8 +300,13 @@ contract LotteryV1Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
 
     function mintMyNFT() public hasNotMinted lotteryEnded {
         require(isWinner(_msgSender()), "Caller is not a winner");
+        uint256 remainingBalance = deposits[_msgSender()] - minimumDepositAmount;
+        deposits[_msgSender()] = 0;
         hasMinted[_msgSender()] = true;
         INFTLotteryTicket(nftContractAddr).lotteryMint(_msgSender());
+        if (remainingBalance > 0) {
+            IERC20(usdcContractAddr).transfer(_msgSender(), remainingBalance);
+        }
     }
 
     function setUsdcContractAddr(address _usdcContractAddr) public onlyOwner {
