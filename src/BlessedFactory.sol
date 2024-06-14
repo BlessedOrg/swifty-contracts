@@ -61,8 +61,12 @@ contract BlessedFactory is Ownable(msg.sender) {
         address nftAuctionV2 = Clones.clone(nftTicket);
         INFTLotteryTicket(nftAuctionV2).initialize(config._uri, true, address(this), config._name, config._symbol);
 
-        // Deploy LotteryV1 and link NFT
         address lotteryV1Clone = Clones.clone(lotteryV1);
+        address lotteryV2Clone = Clones.clone(lotteryV2);
+        address auctionV1Clone = Clones.clone(auctionV1);
+        address auctionV2Clone = Clones.clone(auctionV2);
+
+        // Initialize and Link NFT to LotteryV1
         StructsLibrary.ILotteryBaseConfig memory lotteryV1Config = StructsLibrary.ILotteryBaseConfig({
             _seller: config._seller,
             _gelatoVrfOperator: config._gelatoVrfOperator,
@@ -72,14 +76,14 @@ contract BlessedFactory is Ownable(msg.sender) {
             _ticketPrice: config._ticketPrice,
             _usdcContractAddr: config._usdcContractAddr,
             _multisigWalletAddress: config._multisigWalletAddress,
-            _prevPhaseContractAddr: lotteryV1Clone
+            _prevPhaseContractAddr: lotteryV1Clone,
+            _nextPhaseContractAddr: lotteryV2Clone
         });
         ILotteryBase(lotteryV1Clone).initialize(lotteryV1Config);
         INFTLotteryTicket(nftLotteryV1).setDepositContractAddr(lotteryV1Clone);
         ILotteryBase(lotteryV1Clone).setNftContractAddr(nftLotteryV1);
 
-        // Deploy LotteryV2 and link NFT
-        address lotteryV2Clone = Clones.clone(lotteryV2);
+        // Initialize and Link NFT to LotteryV2
         StructsLibrary.ILotteryBaseConfig memory lotteryV2Config = StructsLibrary.ILotteryBaseConfig({
             _seller: config._seller,
             _gelatoVrfOperator: config._gelatoVrfOperator,
@@ -89,14 +93,14 @@ contract BlessedFactory is Ownable(msg.sender) {
             _ticketPrice: config._ticketPrice,
             _usdcContractAddr: config._usdcContractAddr,
             _multisigWalletAddress: config._multisigWalletAddress,
-            _prevPhaseContractAddr: lotteryV1Clone
+            _prevPhaseContractAddr: lotteryV1Clone,
+            _nextPhaseContractAddr: auctionV1Clone
         });
         ILotteryBase(lotteryV2Clone).initialize(lotteryV2Config);
         INFTLotteryTicket(nftLotteryV2).setDepositContractAddr(lotteryV2Clone);
         ILotteryBase(lotteryV2Clone).setNftContractAddr(nftLotteryV2);
 
-//         Deploy AuctionV1 and link NFT
-        address auctionV1Clone = Clones.clone(auctionV1);
+        // Initialize and Link NFT to AuctionV1
         StructsLibrary.ILotteryBaseConfig memory auctionV1Config = StructsLibrary.ILotteryBaseConfig({
             _seller: config._seller,
             _gelatoVrfOperator: config._gelatoVrfOperator,
@@ -106,14 +110,14 @@ contract BlessedFactory is Ownable(msg.sender) {
             _ticketPrice: config._ticketPrice,
             _usdcContractAddr: config._usdcContractAddr,
             _multisigWalletAddress: config._multisigWalletAddress,
-            _prevPhaseContractAddr: lotteryV2Clone
+            _prevPhaseContractAddr: lotteryV2Clone,
+            _nextPhaseContractAddr: auctionV2Clone
         });
         ILotteryBase(auctionV1Clone).initialize(auctionV1Config);
         INFTLotteryTicket(nftAuctionV1).setDepositContractAddr(auctionV1Clone);
         ILotteryBase(auctionV1Clone).setNftContractAddr(nftAuctionV1);
 
-        // Deploy AuctionV2 and link NFT
-        address auctionV2Clone = Clones.clone(auctionV2);
+        // Initialize and Link NFT to AuctionV2
         StructsLibrary.IAuctionBaseConfig memory auctionV2Config = StructsLibrary.IAuctionBaseConfig({
             _seller: config._seller,
             _owner: address(this),
@@ -121,7 +125,8 @@ contract BlessedFactory is Ownable(msg.sender) {
             _ticketPrice: config._ticketPrice,
             _usdcContractAddr: config._usdcContractAddr,
             _multisigWalletAddress: config._multisigWalletAddress,
-            _prevPhaseContractAddr: auctionV1Clone
+            _prevPhaseContractAddr: auctionV1Clone,
+            _nextPhaseContractAddr: auctionV2Clone
         });
         IAuctionBase(auctionV2Clone).initialize(auctionV2Config);
         INFTLotteryTicket(nftAuctionV2).setDepositContractAddr(auctionV2Clone);

@@ -124,10 +124,7 @@ contract AuctionV2Base is Ownable(msg.sender), ERC2771Context(0xd8253782c45a1205
         require(usdcContractAddr != address(0), "USDC contract address not set");
         require(amount >= initialPrice, "Insufficient funds sent");
         require(amount > 0, "No funds sent");
-        require(
-            IERC20(usdcContractAddr).allowance(_msgSender(), address(this)) >= amount, 
-            "Insufficient allowance"
-        );
+        require(IERC20(usdcContractAddr).allowance(_msgSender(), address(this)) >= amount, "Insufficient allowance");
 
         IERC20(usdcContractAddr).transferFrom(_msgSender(), address(this), amount);
         
@@ -274,10 +271,14 @@ contract AuctionV2Base is Ownable(msg.sender), ERC2771Context(0xd8253782c45a1205
     function mintMyNFT() public hasNotMinted {
         require(numberOfTickets > 0, "No tickets left to allocate");
         require(isWinner(_msgSender()), "Caller is not a winner");
-
+        uint256 remainingBalance = deposits[_msgSender()] - minimumDepositAmount;
+        deposits[_msgSender()] = 0;
         hasMinted[_msgSender()] = true;
         INFTLotteryTicket(nftContractAddr).lotteryMint(_msgSender());
         numberOfTickets--;
+        if (remainingBalance > 0) {
+            IERC20(usdcContractAddr).transfer(_msgSender(), remainingBalance);
+        }
     }
 
     function setUsdcContractAddr(address _usdcContractAddr) public onlyOwner {

@@ -26,6 +26,7 @@ contract AuctionV1Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
         usdcContractAddr = config._usdcContractAddr;
         multisigWalletAddress = config._multisigWalletAddress;
         lotteryV2Addr = config._prevPhaseContractAddr;
+        auctionV2Addr = config._nextPhaseContractAddr;
 
         initialized = true;
     }
@@ -77,6 +78,7 @@ contract AuctionV1Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
     address public nftContractAddr;
     address public usdcContractAddr;
     address public lotteryV2Addr;
+    address public auctionV2Addr;
 
     event LotteryStarted();
     event WinnerSelected(address indexed winner);
@@ -135,10 +137,7 @@ contract AuctionV1Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
         require(!isWinner(_msgSender()), "Winners cannot deposit");
         require(usdcContractAddr != address(0), "USDC contract address not set");
         require(amount > 0, "No funds sent");
-        require(
-            IERC20(usdcContractAddr).allowance(_msgSender(), address(this)) >= amount, 
-            "Insufficient allowance"
-        );
+        require(IERC20(usdcContractAddr).allowance(_msgSender(), address(this)) >= amount, "Insufficient allowance");
 
         IERC20(usdcContractAddr).transferFrom(_msgSender(), address(this), amount);
         
@@ -270,8 +269,7 @@ contract AuctionV1Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
         require(numberOfTickets > 0, "No tickets left to allocate");
         lotteryState = LotteryState.ACTIVE;
         checkEligibleParticipants();
-
-        if(numberOfTickets >= eligibleParticipants.length) {
+        if (numberOfTickets >= eligibleParticipants.length) {
             // If demand is less than or equal to supply, everyone wins
             for (uint256 i = 0; i < eligibleParticipants.length; i++) {
                 address selectedWinner = eligibleParticipants[i];
@@ -358,22 +356,10 @@ contract AuctionV1Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
             if (depositedAmount >= currentPrice) {
                 // Mark this participant as eligible for the lottery
                 if (!isWinner(participants[i])) {
-                  eligibleParticipants.push(participants[i]);
+                    eligibleParticipants.push(participants[i]);
                 }
             }
         }
-    }
-
-    function removeParticipant(uint256 index) internal {
-        require(index < eligibleParticipants.length, "Index out of bounds");
-
-        // If the winner is not the last element, swap it with the last element
-        if (index < eligibleParticipants.length - 1) {
-            eligibleParticipants[index] = eligibleParticipants[eligibleParticipants.length - 1];
-        }
-
-        // Remove the last element (now the winner)
-        eligibleParticipants.pop();
     }
 
     function isParticipantEligible(address participant) public view returns (bool) {
@@ -388,8 +374,14 @@ contract AuctionV1Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
     function mintMyNFT() public {
         require(isWinner(_msgSender()), "Caller is not a winner");
         require(!hasMinted[_msgSender()], "NFT already minted");
-        INFTLotteryTicket(nftContractAddr).lotteryMint(_msgSender());
+        uint256 remainingBalance = deposits[_msgSender()] - minimumDepositAmount;
+        deposits[_msgSender()] = 0;
         hasMinted[_msgSender()] = true;
+        INFTLotteryTicket(nftContractAddr).lotteryMint(_msgSender());
+        if (remainingBalance > 0) {
+            IERC20(usdcContractAddr).transfer(auctionV2Addr, remainingBalance);
+            IAuctionV2(auctionV2Addr).transferDeposit(_msgSender(), remainingBalance);
+        }
     }
 
     function setUsdcContractAddr(address _usdcContractAddr) public onlyOwner {
@@ -411,13 +403,14 @@ contract AuctionV1Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
     }
 
     function transferNonWinnerBids(address destinationAddr) public onlySeller {
-        for (uint256 i = 0; i < eligibleParticipants.length; i++) {
-            uint256 currentDeposit = deposits[eligibleParticipants[i]];
-            deposits[eligibleParticipants[i]] = 0;
-            IERC20(usdcContractAddr).transfer(destinationAddr, currentDeposit);
-            IAuctionV2(destinationAddr).transferDeposit(eligibleParticipants[i], currentDeposit);
+        for (uint256 i = 0; i < participants.length; i++) {
+            uint256 currentDeposit = deposits[participants[i]];
+            if (currentDeposit > 0) {
+                IERC20(usdcContractAddr).transfer(destinationAddr, currentDeposit);
+                IAuctionV2(destinationAddr).transferDeposit(participants[i], currentDeposit);
+            }
+            deposits[participants[i]] = 0;
         }
-        delete eligibleParticipants;
+        delete participants;
     }
-
 }

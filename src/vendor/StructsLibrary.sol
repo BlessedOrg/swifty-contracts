@@ -12,6 +12,7 @@ contract StructsLibrary {
         address _usdcContractAddr;
         address _multisigWalletAddress;
         address _prevPhaseContractAddr;
+        address _nextPhaseContractAddr;
     }
 
     struct IAuctionBaseConfig {
@@ -22,5 +23,6 @@ contract StructsLibrary {
         address _usdcContractAddr;
         address _multisigWalletAddress;
         address _prevPhaseContractAddr;
+        address _nextPhaseContractAddr;
     }
 }
