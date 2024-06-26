@@ -5,7 +5,6 @@ import {Ownable} from "../lib/openzeppelin-contracts/contracts/access/Ownable.so
 import {GelatoVRFConsumerBase} from "../lib/vrf-contracts/contracts/GelatoVRFConsumerBase.sol";
 import {ERC2771Context} from "../lib/relay-context-contracts/contracts/vendor/ERC2771Context.sol";
 import {Context} from "../lib/openzeppelin-contracts/contracts/utils/Context.sol";
-import {DigitExtractor} from "./vendor/DigitExtractor.sol";
 import "src/vendor/StructsLibrary.sol";
 import "src/interfaces/INFTLotteryTicket.sol";
 import "src/interfaces/IERC20.sol";
@@ -128,14 +127,14 @@ contract LotteryV2Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
         return uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao, _msgSender())));
     }
 
-    function requestRandomness() external {
+    function requestRandomness() external onlySeller {
         _requestRandomness(abi.encode(_msgSender()));
         emit RandomRequested(_msgSender());
     }
 
     function _fulfillRandomness(uint256 randomness, uint256, bytes memory extraData) internal override {
         address requestedBy = abi.decode(extraData, (address));
-        uint256 _randomNumber = DigitExtractor.extractFirst14Digits(randomness);
+        uint256 _randomNumber = randomness % 100_000_000_000_000;
 
         if (requestedBy == seller) {
             randomNumber = _randomNumber;
@@ -148,23 +147,20 @@ contract LotteryV2Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
 
     function deposit(uint256 amount) public lotteryStarted hasNotWonInLotteryV1(_msgSender()) {
         require(usdcContractAddr != address(0), "USDC contract address not set");
-        require(amount > 0, "No funds sent");
-        require(
-            IERC20(usdcContractAddr).allowance(_msgSender(), address(this)) >= amount,
-            "Insufficient allowance"
-        );
+        require(amount >= rollPrice, "Not enough funds sent");
+        require(IERC20(usdcContractAddr).allowance(_msgSender(), address(this)) >= amount, "Insufficient allowance");
 
         IERC20(usdcContractAddr).transferFrom(_msgSender(), address(this), amount);
 
         if (deposits[_msgSender()] == 0) {
             participants.push(_msgSender());
+
+            if (rolledNumbers[_msgSender()] == 0) {
+                _requestRandomness(abi.encode(_msgSender()));
+                emit RandomRequested(_msgSender());
+            }
         }
         deposits[_msgSender()] += amount;
-
-        if (rolledNumbers[_msgSender()] == 0) {
-            _requestRandomness(abi.encode(_msgSender()));
-            emit RandomRequested(_msgSender());
-        }
     }
 
     function getParticipants() public view returns (address[] memory) {
@@ -196,7 +192,7 @@ contract LotteryV2Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
         winnerAddresses.push(_winner);
     }
 
-    function buyerWithdraw() public whenLotteryNotActive {
+    function buyerWithdraw() public lotteryEnded {
         require(!winners[_msgSender()], "Winners cannot withdraw");
 
         uint256 amount = deposits[_msgSender()];
@@ -241,8 +237,6 @@ contract LotteryV2Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
 
     function endLottery() public onlySeller {
         changeLotteryState(LotteryState.ENDED);
-        // Additional logic for ending the lottery
-        // Process winners, mint NFT tickets, etc.
     }
 
     function getDepositedAmount(address participant) external view returns (uint256) {
@@ -251,11 +245,8 @@ contract LotteryV2Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
 
     function mintMyNFT() public hasNotMinted hasNotWonInLotteryV1(_msgSender()) {
         require(isWinner(_msgSender()), "Caller is not a winner");
-        require(mintCount < maxMints, "No more mints available");
-
         hasMinted[_msgSender()] = true;
         INFTLotteryTicket(nftContractAddr).lotteryMint(_msgSender());
-        mintCount++;
     }
 
     function setUsdcContractAddr(address _usdcContractAddr) public onlyOwner {
@@ -293,7 +284,7 @@ contract LotteryV2Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
     }
 
     function claimNumber(address _participant) public returns (bool) {
-        if (isClaimable(_participant)) {
+        if (isClaimable(_participant) && !winners[_participant]) {
             winners[_participant] = true;
             winnerAddresses.push(_participant);
             emit WinnerSelected(_participant);
@@ -312,12 +303,12 @@ contract LotteryV2Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
 
         if (deposits[_participant] == 0) {
             participants.push(_participant);
+
+            if (rolledNumbers[_participant] == 0) {
+                _requestRandomness(abi.encode(_participant));
+            }
         }
         deposits[_participant] += _amount;
-
-        if (rolledNumbers[_participant] == 0) {
-            _requestRandomness(abi.encode(_participant));
-        }
     }
 
     function transferNonWinnerDeposits(address auctionV1addr) public onlySeller {

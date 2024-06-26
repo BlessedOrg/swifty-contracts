@@ -29,9 +29,7 @@ contract LotteryV1Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
     enum LotteryState {
         NOT_STARTED,
         ACTIVE,
-        ENDED,
-        VRF_REQUESTED,
-        VRF_COMPLETED
+        ENDED
     }
 
     LotteryState public lotteryState;
@@ -106,9 +104,9 @@ contract LotteryV1Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
         return operatorAddr;
     }
 
-    function deposit(uint256 amount) public payable lotteryStarted {
+    function deposit(uint256 amount) public lotteryStarted {
         require(usdcContractAddr != address(0), "USDC contract address not set");
-        require(amount > 0, "No funds sent");
+        require(amount >= minimumDepositAmount, "Not enough funds sent");
         require(
             IERC20(usdcContractAddr).allowance(_msgSender(), address(this)) >= amount,
             "Insufficient allowance"
@@ -195,32 +193,32 @@ contract LotteryV1Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
 
     function selectWinners() external onlySeller lotteryStarted {
         require(numberOfTickets > 0, "No tickets left to allocate");
-        checkEligibleParticipants();
+        uint256 participantsLength = participants.length;
 
-        if(numberOfTickets >= eligibleParticipants.length) {
+        if(numberOfTickets >= participantsLength) {
             // If demand is less than or equal to supply, everyone wins
-            for (uint256 i = 0; i < eligibleParticipants.length; i++) {
-                address selectedWinner = eligibleParticipants[i];
+            for (uint256 i = 0; i < participantsLength; i++) {
+                address selectedWinner = participants[i];
                 if (!isWinner(selectedWinner)) {
                     setWinner(selectedWinner);
                     emit WinnerSelected(selectedWinner);
                 }
             }
             // Clear the participants list since all are winners
-            delete eligibleParticipants;
+            delete participants;
             numberOfTickets = 0;
         } else {
             // Shuffle the array of participants
-            for (uint j = 0; j < eligibleParticipants.length; j++) {
-                uint n = j + randomNumber % (eligibleParticipants.length - j);
-                address temp = eligibleParticipants[n];
-                eligibleParticipants[n] = eligibleParticipants[j];
-                eligibleParticipants[j] = temp;
+            for (uint j = 0; j < participantsLength; j++) {
+                uint n = j + randomNumber % (participantsLength - j);
+                address temp = participants[n];
+                participants[n] = participants[j];
+                participants[j] = temp;
             }
 
             // Select the first `numberOfTickets` winners
             for (uint256 i = 0; i < numberOfTickets; i++) {
-                address selectedWinner = eligibleParticipants[i];
+                address selectedWinner = participants[i];
                 if (!isWinner(selectedWinner)) {
                     setWinner(selectedWinner);
                     emit WinnerSelected(selectedWinner);
@@ -229,12 +227,12 @@ contract LotteryV1Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
 
             // Remove the winners from the participants list by shifting non-winners up
             uint256 shiftIndex = 0;
-            for (uint256 i = numberOfTickets; i < eligibleParticipants.length; i++) {
-                eligibleParticipants[shiftIndex] = eligibleParticipants[i];
+            for (uint256 i = numberOfTickets; i < participantsLength; i++) {
+                participants[shiftIndex] = participants[i];
                 shiftIndex++;
             }
-            for (uint256 i = shiftIndex; i < eligibleParticipants.length; i++) {
-                eligibleParticipants.pop();
+            for (uint256 i = shiftIndex; i < participantsLength; i++) {
+                participants.pop();
             }
 
             numberOfTickets = 0;
@@ -261,44 +259,10 @@ contract LotteryV1Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
 
     function endLottery() public onlySeller {
         changeLotteryState(LotteryState.ENDED);
-        // Additional logic for ending the lottery
-        // Process winners, mint NFT tickets, etc.
     }
 
     function getDepositedAmount(address participant) external view returns (uint256) {
         return deposits[participant];
-    }
-
-    // Function to check and mark eligible participants
-    function checkEligibleParticipants() internal {
-        for (uint256 i = 0; i < participants.length; i++) {
-            uint256 depositedAmount = deposits[participants[i]];
-            if (depositedAmount >= minimumDepositAmount) {
-                // Mark this participant as eligible for the lottery
-                eligibleParticipants.push(participants[i]);
-            }
-        }
-    }
-
-    function removeParticipant(uint256 index) internal {
-        require(index < eligibleParticipants.length, "Index out of bounds");
-
-        // If the winner is not the last element, swap it with the last element
-        if (index < eligibleParticipants.length - 1) {
-            eligibleParticipants[index] = eligibleParticipants[eligibleParticipants.length - 1];
-        }
-
-        // Remove the last element (now the winner)
-        eligibleParticipants.pop();
-    }
-
-    function isParticipantEligible(address participant) public view returns (bool) {
-        for (uint256 i = 0; i < eligibleParticipants.length; i++) {
-            if (eligibleParticipants[i] == participant) {
-                return true;
-            }
-        }
-        return false;
     }
 
     function mintMyNFT() public hasNotMinted lotteryEnded {

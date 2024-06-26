@@ -29,9 +29,7 @@ contract AuctionV2Base is Ownable(msg.sender), ERC2771Context(0xd8253782c45a1205
     enum LotteryState {
         NOT_STARTED,
         ACTIVE,
-        ENDED,
-        VRF_REQUESTED,
-        VRF_COMPLETED
+        ENDED
     }
 
     LotteryState public lotteryState;
@@ -119,7 +117,7 @@ contract AuctionV2Base is Ownable(msg.sender), ERC2771Context(0xd8253782c45a1205
         return false;
     }    
 
-    function deposit(uint256 amount) public payable lotteryStarted {
+    function deposit(uint256 amount) public lotteryStarted {
         require(!isWinner(_msgSender()), "Winners cannot deposit");
         require(usdcContractAddr != address(0), "USDC contract address not set");
         require(amount >= initialPrice, "Insufficient funds sent");
@@ -173,7 +171,7 @@ contract AuctionV2Base is Ownable(msg.sender), ERC2771Context(0xd8253782c45a1205
         deposits[_winner].isWinner = true;
     }
 
-    function buyerWithdraw() public whenLotteryNotActive {
+    function buyerWithdraw() public lotteryEnded {
         require(!winners[_msgSender()], "Winners cannot withdraw");
 
         uint256 amount = deposits[_msgSender()].amount;
@@ -203,15 +201,18 @@ contract AuctionV2Base is Ownable(msg.sender), ERC2771Context(0xd8253782c45a1205
 
     // sort participants by deposit amount DESC
     function sortDepositsDesc() public onlySeller {
-      for (uint256 i = 0; i < participants.length; i++) {
-        for (uint256 j = i + 1; j < participants.length; j++) {
-          if (deposits[participants[i]].amount < deposits[participants[j]].amount) {
-            address temp = participants[i];
-            participants[i] = participants[j];
-            participants[j] = temp;
-          }
+        for (uint256 i = 0; i < participants.length; i++) {
+            for (uint256 j = i + 1; j < participants.length; j++) {
+                if (
+                    deposits[participants[i]].amount < deposits[participants[j]].amount ||
+                    (deposits[participants[i]].amount == deposits[participants[j]].amount && deposits[participants[i]].timestamp > deposits[participants[j]].timestamp)
+                ) {
+                        address temp = participants[i];
+                        participants[i] = participants[j];
+                        participants[j] = temp;
+                }
+            }
         }
-      }
     }
 
     function selectWinners() external onlySeller {
@@ -274,10 +275,9 @@ contract AuctionV2Base is Ownable(msg.sender), ERC2771Context(0xd8253782c45a1205
     function mintMyNFT() public hasNotMinted {
         require(numberOfTickets > 0, "No tickets left to allocate");
         require(isWinner(_msgSender()), "Caller is not a winner");
-
         hasMinted[_msgSender()] = true;
-        INFTLotteryTicket(nftContractAddr).lotteryMint(_msgSender());
         numberOfTickets--;
+        INFTLotteryTicket(nftContractAddr).lotteryMint(_msgSender());
     }
 
     function setUsdcContractAddr(address _usdcContractAddr) public onlyOwner {

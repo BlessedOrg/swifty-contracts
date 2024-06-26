@@ -95,7 +95,7 @@ contract BlessedFactory is Ownable(msg.sender) {
         INFTLotteryTicket(nftLotteryV2).setDepositContractAddr(lotteryV2Clone);
         ILotteryBase(lotteryV2Clone).setNftContractAddr(nftLotteryV2);
 
-//         Deploy AuctionV1 and link NFT
+        // Deploy AuctionV1 and link NFT
         address auctionV1Clone = Clones.clone(auctionV1);
         StructsLibrary.ILotteryBaseConfig memory auctionV1Config = StructsLibrary.ILotteryBaseConfig({
             _seller: config._seller,
