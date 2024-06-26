@@ -276,6 +276,11 @@ contract AuctionV2Base is Ownable(msg.sender), ERC2771Context(0xd8253782c45a1205
         require(numberOfTickets > 0, "No tickets left to allocate");
         require(isWinner(_msgSender()), "Caller is not a winner");
         hasMinted[_msgSender()] = true;
+        uint256 remainingBalance = deposits[_msgSender()].amount - minimumDepositAmount;
+        if (remainingBalance > 0) {
+            IERC20(usdcContractAddr).transfer(_msgSender(), remainingBalance);
+        }
+        deposits[_msgSender()].amount = 0;
         numberOfTickets--;
         INFTLotteryTicket(nftContractAddr).lotteryMint(_msgSender());
     }

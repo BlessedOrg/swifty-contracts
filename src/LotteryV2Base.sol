@@ -246,6 +246,11 @@ contract LotteryV2Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
     function mintMyNFT() public hasNotMinted hasNotWonInLotteryV1(_msgSender()) {
         require(isWinner(_msgSender()), "Caller is not a winner");
         hasMinted[_msgSender()] = true;
+        uint256 remainingBalance = deposits[_msgSender()] - minimumDepositAmount;
+        if (remainingBalance > 0) {
+            IERC20(usdcContractAddr).transfer(_msgSender(), remainingBalance);
+        }
+        deposits[_msgSender()] = 0;
         INFTLotteryTicket(nftContractAddr).lotteryMint(_msgSender());
     }
 

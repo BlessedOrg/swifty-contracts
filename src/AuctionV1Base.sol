@@ -357,6 +357,11 @@ contract AuctionV1Base is GelatoVRFConsumerBase, Ownable(msg.sender), ERC2771Con
         require(isWinner(_msgSender()), "Caller is not a winner");
         require(!hasMinted[_msgSender()], "NFT already minted");
         hasMinted[_msgSender()] = true;
+        uint256 remainingBalance = deposits[_msgSender()] - currentPrice;
+        if (remainingBalance > 0) {
+            IERC20(usdcContractAddr).transfer(_msgSender(), remainingBalance);
+        }
+        deposits[_msgSender()] = 0;
         INFTLotteryTicket(nftContractAddr).lotteryMint(_msgSender());
     }
 
