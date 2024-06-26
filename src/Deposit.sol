@@ -155,7 +155,6 @@ contract Deposit is Ownable, VRFConsumerBaseV2 {
     }
 
     function fulfillRandomWords(uint256 requestId, uint256[] memory randomWords) internal override {
-        lotteryState = LotteryState.VRF_COMPLETED;
         randomNumber = randomWords[0];
         lastFullfiledRequestId = requestId;
     }
@@ -184,9 +183,7 @@ contract Deposit is Ownable, VRFConsumerBaseV2 {
     function initiateSelectWinner() public onlySeller lotteryStarted returns(uint256) {
         require(numberOfTickets > 0, "All tickets have been allocated");
         require(eligibleParticipants.length > 0, "No eligible participants left");
-        require(lotteryState != LotteryState.VRF_REQUESTED, "VRF request already initiated");
 
-        changeLotteryState(LotteryState.VRF_REQUESTED);
         uint256 requestId = COORDINATOR.requestRandomWords(
             s_keyHash,
             s_subscriptionId,

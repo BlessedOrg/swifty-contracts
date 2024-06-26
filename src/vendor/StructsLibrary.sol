@@ -10,6 +10,7 @@ contract StructsLibrary {
         uint256 _ticketPrice;
         address _usdcContractAddr;
         address _multisigWalletAddress;
+        address _prevPhaseContractAddr;
     }
 
     struct IAuctionBaseConfig {
@@ -19,5 +20,6 @@ contract StructsLibrary {
         uint256 _ticketPrice;
         address _usdcContractAddr;
         address _multisigWalletAddress;
+        address _prevPhaseContractAddr;
     }
 }

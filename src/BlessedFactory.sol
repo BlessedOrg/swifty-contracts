@@ -64,7 +64,6 @@ contract BlessedFactory is Ownable(msg.sender) {
         // Deploy LotteryV1 and link NFT
         address lotteryV1Clone = Clones.clone(lotteryV1);
         StructsLibrary.ILotteryBaseConfig memory lotteryV1Config = StructsLibrary.ILotteryBaseConfig({
-            _seller: config._seller,
             _gelatoVrfOperator: config._gelatoVrfOperator,
             _blessedOperator: config._blessedOperator,
             _owner: address(this),
@@ -77,11 +76,12 @@ contract BlessedFactory is Ownable(msg.sender) {
         ILotteryBase(lotteryV1Clone).initialize(lotteryV1Config);
         INFTLotteryTicket(nftLotteryV1).setDepositContractAddr(lotteryV1Clone);
         ILotteryBase(lotteryV1Clone).setNftContractAddr(nftLotteryV1);
+        ILotteryBase(lotteryV1Clone).transferOwnership(config._owner);
+        INFTLotteryTicket(nftLotteryV1).transferOwnership(config._owner);
 
         // Deploy LotteryV2 and link NFT
         address lotteryV2Clone = Clones.clone(lotteryV2);
         StructsLibrary.ILotteryBaseConfig memory lotteryV2Config = StructsLibrary.ILotteryBaseConfig({
-            _seller: config._seller,
             _gelatoVrfOperator: config._gelatoVrfOperator,
             _blessedOperator: config._blessedOperator,
             _owner: address(this),
@@ -94,11 +94,12 @@ contract BlessedFactory is Ownable(msg.sender) {
         ILotteryBase(lotteryV2Clone).initialize(lotteryV2Config);
         INFTLotteryTicket(nftLotteryV2).setDepositContractAddr(lotteryV2Clone);
         ILotteryBase(lotteryV2Clone).setNftContractAddr(nftLotteryV2);
+        ILotteryBase(lotteryV2Clone).transferOwnership(config._owner);
+        INFTLotteryTicket(nftLotteryV2).transferOwnership(config._owner);
 
         // Deploy AuctionV1 and link NFT
         address auctionV1Clone = Clones.clone(auctionV1);
         StructsLibrary.ILotteryBaseConfig memory auctionV1Config = StructsLibrary.ILotteryBaseConfig({
-            _seller: config._seller,
             _gelatoVrfOperator: config._gelatoVrfOperator,
             _blessedOperator: config._blessedOperator,
             _owner: address(this),
@@ -111,6 +112,8 @@ contract BlessedFactory is Ownable(msg.sender) {
         ILotteryBase(auctionV1Clone).initialize(auctionV1Config);
         INFTLotteryTicket(nftAuctionV1).setDepositContractAddr(auctionV1Clone);
         ILotteryBase(auctionV1Clone).setNftContractAddr(nftAuctionV1);
+        ILotteryBase(auctionV1Clone).transferOwnership(config._owner);
+        INFTLotteryTicket(nftAuctionV1).transferOwnership(config._owner);
 
         // Deploy AuctionV2 and link NFT
         address auctionV2Clone = Clones.clone(auctionV2);
@@ -126,15 +129,7 @@ contract BlessedFactory is Ownable(msg.sender) {
         IAuctionBase(auctionV2Clone).initialize(auctionV2Config);
         INFTLotteryTicket(nftAuctionV2).setDepositContractAddr(auctionV2Clone);
         ILotteryBase(auctionV2Clone).setNftContractAddr(nftAuctionV2);
-
-        // transfer ownerships to owners
-        ILotteryBase(lotteryV1Clone).transferOwnership(config._owner);
-        ILotteryBase(lotteryV2Clone).transferOwnership(config._owner);
-        ILotteryBase(auctionV1Clone).transferOwnership(config._owner);
         ILotteryBase(auctionV2Clone).transferOwnership(config._owner);
-        INFTLotteryTicket(nftLotteryV1).transferOwnership(config._owner);
-        INFTLotteryTicket(nftLotteryV2).transferOwnership(config._owner);
-        INFTLotteryTicket(nftAuctionV1).transferOwnership(config._owner);
         INFTLotteryTicket(nftAuctionV2).transferOwnership(config._owner);
 
         sales[currentIndex] = [
