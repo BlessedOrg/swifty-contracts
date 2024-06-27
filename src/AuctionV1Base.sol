@@ -13,7 +13,7 @@ import "src/interfaces/ILotteryV2.sol";
 import "src/interfaces/IAuctionV2.sol";
 
 contract AuctionV1Base is SaleBase, GelatoVRFConsumerBase {
-    function initialize(StructsLibrary.ILotteryBaseConfig memory config) public {
+    function initialize(StructsLibrary.IAuctionV1BaseConfig memory config) public {
         require(initialized == false, "Already initialized");
         seller = config._blessedOperator;
         operatorAddr = config._gelatoVrfOperator;
@@ -24,15 +24,14 @@ contract AuctionV1Base is SaleBase, GelatoVRFConsumerBase {
         minimumDepositAmount = config._ticketPrice;
         currentPrice = config._ticketPrice;
         initialPrice = config._ticketPrice;
+        increasePriceStep = config._priceIncreaseStep;
         usdcContractAddr = config._usdcContractAddr;
+        nftContractAddr = config._nftContractAddr;
         multisigWalletAddress = config._multisigWalletAddress;
         lotteryV2Addr = config._prevPhaseContractAddr;
 
         initialized = true;
     }
-
-    bool public initialized = false;
-
 
     struct Round {
         uint256 number;
@@ -42,7 +41,7 @@ contract AuctionV1Base is SaleBase, GelatoVRFConsumerBase {
         bool winnersSelected;
     }
     mapping(uint256 => Round) public rounds;
-    uint256 public roundCounter;
+    uint256 public roundCounter = 1;
     mapping(address => bool) public operators;
     address public lotteryV2Addr;
     address public operatorAddr;
@@ -56,6 +55,7 @@ contract AuctionV1Base is SaleBase, GelatoVRFConsumerBase {
 
     event RandomRequested(address indexed requester);
     event RandomFulfilled(uint256 number);
+    event RoundSet(uint256 indexed roundNumber, uint256 finishAt, uint256 numberOfTickets);
 
     modifier onlyOperator() {
         require(_msgSender() == seller || _msgSender() == owner() || operators[_msgSender()], "Only operator can call this function");
@@ -70,10 +70,7 @@ contract AuctionV1Base is SaleBase, GelatoVRFConsumerBase {
         require(!isWinner(_msgSender()), "Winners cannot deposit");
         require(usdcContractAddr != address(0), "USDC contract address not set");
         require(amount >= minimumDepositAmount, "Not enough funds sent");
-        require(
-            IERC20(usdcContractAddr).allowance(_msgSender(), address(this)) >= amount, 
-            "Insufficient allowance"
-        );
+        require(IERC20(usdcContractAddr).allowance(_msgSender(), address(this)) >= amount, "Insufficient allowance");
 
         IERC20(usdcContractAddr).transferFrom(_msgSender(), address(this), amount);
         
@@ -84,20 +81,17 @@ contract AuctionV1Base is SaleBase, GelatoVRFConsumerBase {
         if (amount >= currentPrice) {
             prevRoundDeposits += 1;
         }
+        emit BuyerDeposited(_msgSender(), amount);
     }
 
     function setOperator(address _operatorAddr, bool _flag) public onlyOwner {
         operators[_operatorAddr] = _flag;
-    }     
-
-    function setPriceStep(uint256 _increasePriceStep) public onlySeller {
-        increasePriceStep = _increasePriceStep;
-    }   
+    }
 
     function setupNewRound(uint256 _finishAt, uint256 _numberOfTickets) public onlyOperator {
         require(_numberOfTickets <= totalNumberOfTickets, "Tickets per round cannot be higher than total number of tickets in AuctionV1");
-        uint256 newPrice = 0;
 
+        uint256 newPrice = 0;
         if (prevRoundDeposits >= totalNumberOfTickets) {
             // higher demand than supply, increase price
             newPrice = currentPrice + increasePriceStep * (prevRoundDeposits / prevRoundTicketsAmount);
@@ -120,9 +114,12 @@ contract AuctionV1Base is SaleBase, GelatoVRFConsumerBase {
             number: roundCounter,
             finishAt: _finishAt,
             numberOfTickets: _numberOfTickets,
-            lotteryStarted: false,
+            lotteryStarted: true,
             winnersSelected: false
         });
+        emit RoundSet(roundCounter, _finishAt, _numberOfTickets);
+
+        changeLotteryState(LotteryState.ACTIVE);
 
         roundCounter++;
     }
@@ -193,25 +190,6 @@ contract AuctionV1Base is SaleBase, GelatoVRFConsumerBase {
         }
     }
 
-    function setCurrentPrice(uint256 _amount) public onlySeller {
-      if(initialPrice == 0) {
-        initialPrice = _amount;
-      }
-      currentPrice = _amount;
-    }
-
-    function setNumberOfTickets(uint256 _numberOfTickets) public override onlySeller {
-        require(_numberOfTickets > 0, "Number of tickets must be greater than zero");
-        numberOfTickets = _numberOfTickets;
-        prevRoundTicketsAmount = _numberOfTickets;
-    }
-
-    function startLottery() public override onlySeller lotteryNotStarted {
-        require(roundCounter >= 1, "Setup new round first");
-        changeLotteryState(LotteryState.ACTIVE);
-        rounds[roundCounter].lotteryStarted = true;
-    }
-
     function mintMyNFT() public {
         require(isWinner(_msgSender()), "Caller is not a winner");
         require(!hasMinted[_msgSender()], "NFT already minted");
@@ -223,10 +201,6 @@ contract AuctionV1Base is SaleBase, GelatoVRFConsumerBase {
         deposits[_msgSender()] = 0;
         INFTLotteryTicket(nftContractAddr).lotteryMint(_msgSender());
     }
-
-    function setLotteryV2Addr(address _lotteryV2Addr) public onlySeller {
-        lotteryV2Addr = _lotteryV2Addr;
-    }    
 
     function transferDeposit(address _participant, uint256 _amount) public {
         require(lotteryV2Addr == _msgSender(), "Only whitelisted may call this function");

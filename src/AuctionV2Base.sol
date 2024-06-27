@@ -11,7 +11,7 @@ import "src/interfaces/IERC20.sol";
 import "src/interfaces/ILotteryV2.sol";
 
 contract AuctionV2Base is SaleBase {
-    function initialize(StructsLibrary.IAuctionBaseConfig memory config) public {
+    function initialize(StructsLibrary.IAuctionV2BaseConfig memory config) public {
         require(initialized == false, "Already initialized");
         seller = config._seller;
         _transferOwnership(config._owner);
@@ -19,23 +19,21 @@ contract AuctionV2Base is SaleBase {
         minimumDepositAmount = config._ticketPrice;
         initialPrice = config._ticketPrice;
         usdcContractAddr = config._usdcContractAddr;
+        nftContractAddr = config._nftContractAddr;
         multisigWalletAddress = config._multisigWalletAddress;
         auctionV1Addr = config._prevPhaseContractAddr;
 
         initialized = true;
     }
 
-    bool public initialized = false;
-
     struct Deposit {
       uint256 amount;
       uint256 timestamp;
       bool isWinner;
     }
-
     mapping(address => Deposit) public Deposits;
-    uint256 public initialPrice;
     mapping(address => bool) public operators;
+    uint256 public initialPrice;
     address public auctionV1Addr;
 
     modifier onlyOperator() {
@@ -57,11 +55,7 @@ contract AuctionV2Base is SaleBase {
         require(!isWinner(_msgSender()), "Winners cannot deposit");
         require(usdcContractAddr != address(0), "USDC contract address not set");
         require(amount >= initialPrice, "Insufficient funds sent");
-        require(amount > 0, "No funds sent");
-        require(
-            IERC20(usdcContractAddr).allowance(_msgSender(), address(this)) >= amount, 
-            "Insufficient allowance"
-        );
+        require(IERC20(usdcContractAddr).allowance(_msgSender(), address(this)) >= amount, "Insufficient allowance");
 
         IERC20(usdcContractAddr).transferFrom(_msgSender(), address(this), amount);
         
@@ -71,6 +65,7 @@ contract AuctionV2Base is SaleBase {
             Deposits[_msgSender()] = Deposit(amount, block.timestamp, false);
             participants.push(_msgSender());
         }
+        emit BuyerDeposited(_msgSender(), amount);
     }
 
     function setOperator(address _operator, bool _flag) public onlyOwner {
@@ -81,6 +76,7 @@ contract AuctionV2Base is SaleBase {
         winners[_winner] = true;
         winnerAddresses.push(_winner);
         Deposits[_winner].isWinner = true;
+        emit WinnerSelected(_winner);
     }
 
     function buyerWithdraw() public override lotteryEnded {
@@ -89,6 +85,7 @@ contract AuctionV2Base is SaleBase {
         require(amount > 0, "No funds to withdraw");
         Deposits[_msgSender()].amount = 0;
         IERC20(usdcContractAddr).transfer(_msgSender(), amount);
+        emit BuyerWithdrew(_msgSender(), amount);
     }
 
     function sellerWithdraw() public override onlySeller() {
@@ -117,9 +114,9 @@ contract AuctionV2Base is SaleBase {
                     Deposits[participants[i]].amount < Deposits[participants[j]].amount ||
                     (Deposits[participants[i]].amount == Deposits[participants[j]].amount && Deposits[participants[i]].timestamp > Deposits[participants[j]].timestamp)
                 ) {
-                        address temp = participants[i];
-                        participants[i] = participants[j];
-                        participants[j] = temp;
+                    address temp = participants[i];
+                    participants[i] = participants[j];
+                    participants[j] = temp;
                 }
             }
         }
@@ -178,10 +175,6 @@ contract AuctionV2Base is SaleBase {
         Deposits[_msgSender()].amount = 0;
         numberOfTickets--;
         INFTLotteryTicket(nftContractAddr).lotteryMint(_msgSender());
-    }
-
-    function setAuctionV1Addr(address _auctionV1Addr) public onlyOperator() {
-        auctionV1Addr = _auctionV1Addr;
     }
 
     function transferDeposit(address _participant, uint256 _amount) public {

@@ -13,30 +13,29 @@ import "src/interfaces/IAuctionV1.sol";
 import "src/interfaces/ILotteryV1.sol";
 
 contract LotteryV2Base is SaleBase, GelatoVRFConsumerBase {
-    function initialize(StructsLibrary.ILotteryBaseConfig memory config) public {
+    function initialize(StructsLibrary.ILotteryV2BaseConfig memory config) public {
         require(initialized == false, "Already initialized");
         seller = config._blessedOperator;
         operatorAddr = config._gelatoVrfOperator;
         _transferOwnership(config._owner);
         numberOfTickets = config._ticketAmount;
         minimumDepositAmount = config._ticketPrice;
+        rollPrice = config._rollPrice;
+        rollTolerance = config._rollTolerance;
         usdcContractAddr = config._usdcContractAddr;
+        nftContractAddr = config._nftContractAddr;
         multisigWalletAddress = config._multisigWalletAddress;
         lotteryV1Addr = config._prevPhaseContractAddr;
 
         initialized = true;
     }
 
-    bool public initialized = false;
-
     address public operatorAddr;
-    uint256 public maxMints;
-    uint256 public mintCount;
     uint256 public randomNumber;
     address public lotteryV1Addr;
     mapping(address => uint256) public rolledNumbers;
     uint256 public rollPrice;
-    uint256 public rollTolerance = 0;
+    uint256 public rollTolerance;
 
     event RandomRequested(address indexed requester);
     event RandomFulfilled(address indexed requester, uint256 number);
@@ -94,13 +93,7 @@ contract LotteryV2Base is SaleBase, GelatoVRFConsumerBase {
             }
         }
         deposits[_msgSender()] += amount;
-    }
-
-    function setNumberOfTickets(uint256 _numberOfTickets) public override onlySeller {
-        require(_numberOfTickets > 0, "Number of tickets must be greater than zero");
-        numberOfTickets = _numberOfTickets;
-        maxMints = _numberOfTickets;
-        mintCount = 0;
+        emit BuyerDeposited(_msgSender(), amount);
     }
 
     function mintMyNFT() public hasNotMinted hasNotWonInLotteryV1(_msgSender()) {
@@ -112,15 +105,6 @@ contract LotteryV2Base is SaleBase, GelatoVRFConsumerBase {
         }
         deposits[_msgSender()] = 0;
         INFTLotteryTicket(nftContractAddr).lotteryMint(_msgSender());
-    }
-
-    function setRollPrice(uint256 _rollPrice) public onlySeller() {
-        rollPrice = _rollPrice;
-    }
-
-    function setRollTolerance(uint256 _tolerance) public onlySeller() {
-        require(_tolerance >= 1 && _tolerance <= 99, "Tolerance percentage must be between 1 and 99");
-        rollTolerance = _tolerance;
     }
 
     function roll() public lotteryStarted {

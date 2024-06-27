@@ -12,7 +12,7 @@ import "src/interfaces/IERC20.sol";
 import "src/interfaces/ILotteryV2.sol";
 
 contract LotteryV1Base is SaleBase, GelatoVRFConsumerBase {
-    function initialize(StructsLibrary.ILotteryBaseConfig memory config) public {
+    function initialize(StructsLibrary.ILotteryV1BaseConfig memory config) public {
         require(initialized == false, "Already initialized");
         seller = config._blessedOperator;
         operatorAddr = config._gelatoVrfOperator;
@@ -20,12 +20,11 @@ contract LotteryV1Base is SaleBase, GelatoVRFConsumerBase {
         numberOfTickets = config._ticketAmount;
         minimumDepositAmount = config._ticketPrice;
         usdcContractAddr = config._usdcContractAddr;
+        nftContractAddr = config._nftContractAddr;
         multisigWalletAddress = config._multisigWalletAddress;
 
         initialized = true;
     }
-
-    bool public initialized = false;
 
     address public operatorAddr;
     uint256 public randomNumber;
@@ -40,10 +39,7 @@ contract LotteryV1Base is SaleBase, GelatoVRFConsumerBase {
     function deposit(uint256 amount) public lotteryStarted {
         require(usdcContractAddr != address(0), "USDC contract address not set");
         require(amount >= minimumDepositAmount, "Not enough funds sent");
-        require(
-            IERC20(usdcContractAddr).allowance(_msgSender(), address(this)) >= amount,
-            "Insufficient allowance"
-        );
+        require(IERC20(usdcContractAddr).allowance(_msgSender(), address(this)) >= amount, "Insufficient allowance");
 
         IERC20(usdcContractAddr).transferFrom(_msgSender(), address(this), amount);
 
@@ -51,6 +47,7 @@ contract LotteryV1Base is SaleBase, GelatoVRFConsumerBase {
             participants.push(_msgSender());
         }
         deposits[_msgSender()] += amount;
+        emit BuyerDeposited(_msgSender(), amount);
     }
 
     function requestRandomness() external onlySeller {

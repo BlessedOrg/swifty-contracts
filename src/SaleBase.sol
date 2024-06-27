@@ -4,6 +4,7 @@ pragma solidity ^0.8.13;
 import { Ownable } from "../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
 import { ERC2771Context } from "../lib/relay-context-contracts/contracts/vendor/ERC2771Context.sol";
 import { Context } from "../lib/openzeppelin-contracts/contracts/utils/Context.sol";
+import { StructsLibrary } from "./vendor/StructsLibrary.sol";
 import "src/interfaces/IERC20.sol";
 
 contract SaleBase is Ownable(msg.sender), ERC2771Context(0xd8253782c45a12053594b9deB72d8e8aB2Fca54c) {
@@ -14,6 +15,7 @@ contract SaleBase is Ownable(msg.sender), ERC2771Context(0xd8253782c45a12053594b
     }
 
     LotteryState public lotteryState;
+    bool public initialized = false;
     address public multisigWalletAddress;
     address public seller;
     uint256 public minimumDepositAmount;
@@ -27,8 +29,10 @@ contract SaleBase is Ownable(msg.sender), ERC2771Context(0xd8253782c45a12053594b
     address public usdcContractAddr;
 
     event LotteryStarted();
-    event WinnerSelected(address indexed winner);
     event LotteryEnded();
+    event WinnerSelected(address indexed winner);
+    event BuyerWithdrew(address indexed buyer, uint256 indexed amount);
+    event BuyerDeposited(address indexed buyer, uint256 indexed amount);
 
     modifier onlySeller() {
         require(_msgSender() == seller, "Only seller can call this function");
@@ -76,14 +80,6 @@ contract SaleBase is Ownable(msg.sender), ERC2771Context(0xd8253782c45a12053594b
         return participants;
     }
 
-    function setMultisigWalletAddress(address _multisigWalletAddress) public onlyOwner {
-        multisigWalletAddress = _multisigWalletAddress;
-    }
-
-    function setNftContractAddr(address _nftContractAddr) public onlyOwner {
-        nftContractAddr = _nftContractAddr;
-    }
-
     function changeLotteryState(LotteryState _newState) public onlySeller {
         lotteryState = _newState;
     }
@@ -99,6 +95,7 @@ contract SaleBase is Ownable(msg.sender), ERC2771Context(0xd8253782c45a12053594b
     function setWinner(address _winner) internal virtual {
         winners[_winner] = true;
         winnerAddresses.push(_winner);
+        emit WinnerSelected(_winner);
     }
 
     function buyerWithdraw() public virtual lotteryEnded {
@@ -107,6 +104,7 @@ contract SaleBase is Ownable(msg.sender), ERC2771Context(0xd8253782c45a12053594b
         require(amount > 0, "No funds to withdraw");
         deposits[_msgSender()] = 0;
         IERC20(usdcContractAddr).transfer(_msgSender(), amount);
+        emit BuyerWithdrew(_msgSender(), amount);
     }
 
     function sellerWithdraw() public virtual onlySeller {
@@ -123,16 +121,7 @@ contract SaleBase is Ownable(msg.sender), ERC2771Context(0xd8253782c45a12053594b
         IERC20(usdcContractAddr).transfer(seller, amountToSeller);
     }
 
-    function setMinimumDepositAmount(uint256 _amount) public onlySeller {
-        minimumDepositAmount = _amount;
-    }
-
-    function setNumberOfTickets(uint256 _numberOfTickets) public virtual onlySeller {
-        require(_numberOfTickets > 0, "Number of tickets must be greater than zero");
-        numberOfTickets = _numberOfTickets;
-    }
-
-    function startLottery() public virtual onlySeller lotteryNotStarted {
+    function startLottery() public onlySeller lotteryNotStarted {
         changeLotteryState(LotteryState.ACTIVE);
         emit LotteryStarted();
     }
@@ -144,9 +133,5 @@ contract SaleBase is Ownable(msg.sender), ERC2771Context(0xd8253782c45a12053594b
 
     function getDepositedAmount(address participant) external virtual view returns (uint256) {
         return deposits[participant];
-    }
-
-    function setUsdcContractAddr(address _usdcContractAddr) public onlyOwner {
-        usdcContractAddr = _usdcContractAddr;
     }
 }
