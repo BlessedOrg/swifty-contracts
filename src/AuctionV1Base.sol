@@ -73,7 +73,7 @@ contract AuctionV1Base is SaleBase, GelatoVRFConsumerBase {
         require(IERC20(usdcContractAddr).allowance(_msgSender(), address(this)) >= amount, "Insufficient allowance");
 
         IERC20(usdcContractAddr).transferFrom(_msgSender(), address(this), amount);
-        
+
         if(deposits[_msgSender()] == 0) {
             participants.push(_msgSender());
         }
@@ -127,7 +127,7 @@ contract AuctionV1Base is SaleBase, GelatoVRFConsumerBase {
     function requestRandomness() external onlySeller {
         _requestRandomness(abi.encode(_msgSender()));
         emit RandomRequested(_msgSender());
-    } 
+    }
 
     function _fulfillRandomness(uint256 randomness, uint256, bytes memory) internal override {
         randomNumber = randomness;
