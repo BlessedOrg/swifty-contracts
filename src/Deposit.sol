@@ -14,7 +14,7 @@ contract Deposit is Ownable, VRFConsumerBaseV2 {
     bytes32 s_keyHash = 0x474e34a077df58807dbe9c96d3c009b23b3c6d0cce433e59bbf5b34f823bc56c;
     uint32 callbackGasLimit = 400000;
     uint16 requestConfirmations = 3;
-    uint32 numWords =  1;
+    uint32 numWords = 1;
     uint256 public lastFullfiledRequestId;
 
     constructor(address _seller, uint64 subscriptionId, address vrfCoordinatorAddr)
@@ -30,9 +30,7 @@ contract Deposit is Ownable, VRFConsumerBaseV2 {
     enum LotteryState {
         NOT_STARTED,
         ACTIVE,
-        ENDED,
-        VRF_REQUESTED,
-        VRF_COMPLETED
+        ENDED
     }
 
     LotteryState public lotteryState;
@@ -106,7 +104,7 @@ contract Deposit is Ownable, VRFConsumerBaseV2 {
 
     function setNftContractAddr(address _nftContractAddr) public onlyOwner {
         nftContractAddr = _nftContractAddr;
-    }    
+    }
 
     function changeLotteryState(LotteryState _newState) public onlySeller {
         lotteryState = _newState;
@@ -125,17 +123,18 @@ contract Deposit is Ownable, VRFConsumerBaseV2 {
         winnerAddresses.push(_winner);
     }
 
-    function buyerWithdraw() public whenLotteryNotActive {
+    function buyerWithdraw() public lotteryEnded {
         require(!winners[msg.sender], "Winners cannot withdraw");
 
         uint256 amount = deposits[msg.sender];
         require(amount > 0, "No funds to withdraw");
 
         deposits[msg.sender] = 0;
-        payable(msg.sender).transfer(amount);
+        (bool success, ) = msg.sender.call{value: amount}("");
+        require(success, "Transfer to msg.sender failed");
     }
 
-    function sellerWithdraw() public onlySeller() {
+    function sellerWithdraw() public onlySeller {
         require(lotteryState == LotteryState.ENDED, "Lottery not ended");
 
         uint256 totalAmount = 0;
@@ -149,12 +148,13 @@ contract Deposit is Ownable, VRFConsumerBaseV2 {
         uint256 protocolTax = (totalAmount * 5) / 100; // 5% tax
         uint256 amountToSeller = totalAmount - protocolTax;
 
-        payable(multisigWalletAddress).transfer(protocolTax);
-        payable(seller).transfer(amountToSeller);
+        (bool multisigSuccess, ) = multisigWalletAddress.call{value: protocolTax}("");
+        require(multisigSuccess, "Transfer to multisigWalletAddress failed");
+        (bool sellerSuccess, ) = seller.call{value: amountToSeller}("");
+        require(sellerSuccess, "Transfer to seller failed");
     }
 
     function fulfillRandomWords(uint256 requestId, uint256[] memory randomWords) internal override {
-        lotteryState = LotteryState.VRF_COMPLETED;
         randomNumber = randomWords[0];
         lastFullfiledRequestId = requestId;
     }
@@ -183,9 +183,7 @@ contract Deposit is Ownable, VRFConsumerBaseV2 {
     function initiateSelectWinner() public onlySeller lotteryStarted returns(uint256) {
         require(numberOfTickets > 0, "All tickets have been allocated");
         require(eligibleParticipants.length > 0, "No eligible participants left");
-        require(lotteryState != LotteryState.VRF_REQUESTED, "VRF request already initiated");
 
-        changeLotteryState(LotteryState.VRF_REQUESTED);
         uint256 requestId = COORDINATOR.requestRandomWords(
             s_keyHash,
             s_subscriptionId,
@@ -193,7 +191,6 @@ contract Deposit is Ownable, VRFConsumerBaseV2 {
             callbackGasLimit,
             numWords
         );
-
         return requestId;
     }
 
@@ -213,20 +210,16 @@ contract Deposit is Ownable, VRFConsumerBaseV2 {
 
     function endLottery() public onlySeller {
         changeLotteryState(LotteryState.ENDED);
-        // Additional logic for ending the lottery
-        // Process winners, mint NFT tickets, etc.
     }
 
     function getDepositedAmount(address participant) external view returns (uint256) {
         return deposits[participant];
     }
 
-    // Function to check and mark eligible participants
     function checkEligibleParticipants() internal {
         for (uint256 i = 0; i < participants.length; i++) {
             uint256 depositedAmount = deposits[participants[i]];
             if (depositedAmount >= minimumDepositAmount) {
-                // Mark this participant as eligible for the lottery
                 eligibleParticipants.push(participants[i]);
             }
         }
