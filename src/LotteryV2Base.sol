@@ -19,7 +19,7 @@ contract LotteryV2Base is SaleBase, GelatoVRFConsumerBase {
         operatorAddr = config._gelatoVrfOperator;
         _transferOwnership(config._owner);
         numberOfTickets = config._ticketAmount;
-        minimumDepositAmount = config._ticketPrice;
+        ticketPrice = config._ticketPrice;
         rollPrice = config._rollPrice;
         rollTolerance = config._rollTolerance;
         usdcContractAddr = config._usdcContractAddr;
@@ -96,20 +96,9 @@ contract LotteryV2Base is SaleBase, GelatoVRFConsumerBase {
         emit BuyerDeposited(_msgSender(), amount);
     }
 
-    function mintMyNFT() public hasNotMinted hasNotWonInLotteryV1(_msgSender()) {
-        require(isWinner(_msgSender()), "Caller is not a winner");
-        hasMinted[_msgSender()] = true;
-        uint256 remainingBalance = deposits[_msgSender()] - minimumDepositAmount;
-        if (remainingBalance > 0) {
-            IERC20(usdcContractAddr).transfer(_msgSender(), remainingBalance);
-        }
-        deposits[_msgSender()] = 0;
-        INFTLotteryTicket(nftContractAddr).lotteryMint(_msgSender());
-    }
-
     function roll() public lotteryStarted {
         require(rollPrice > 0, "No roll price set");
-        require(deposits[_msgSender()] >= rollPrice + minimumDepositAmount, "Insufficient funds");
+        require(deposits[_msgSender()] >= rollPrice + ticketPrice, "Insufficient funds");
 
         deposits[_msgSender()] -= rollPrice;
         deposits[seller] += rollPrice;
@@ -122,7 +111,7 @@ contract LotteryV2Base is SaleBase, GelatoVRFConsumerBase {
         uint256 upperLimit = rolledNumbers[_participant] + ((rolledNumbers[_participant] * rollTolerance / 100));
         bool isWithinTolerance = (randomNumber >= lowerLimit) && (randomNumber <= upperLimit);
 
-        if (deposits[_participant] >= minimumDepositAmount && isWithinTolerance) {
+        if (deposits[_participant] >= ticketPrice && isWithinTolerance) {
             return true;
         }
         return false;
@@ -161,5 +150,22 @@ contract LotteryV2Base is SaleBase, GelatoVRFConsumerBase {
                 IAuctionV1(auctionV1addr).transferDeposit(participants[i], currentDeposit);
             }
         }
+    }
+
+    function mintMyNFT() public hasNotMinted hasNotWonInLotteryV1(_msgSender()) {
+        require(isWinner(_msgSender()), "Caller is not a winner");
+        hasMinted[_msgSender()] = true;
+        uint256 remainingBalance = deposits[_msgSender()] - ticketPrice;
+        if (remainingBalance > 0) {
+            IERC20(usdcContractAddr).transfer(_msgSender(), remainingBalance);
+        }
+        deposits[_msgSender()] = 0;
+        INFTLotteryTicket(nftContractAddr).lotteryMint(_msgSender());
+    }
+
+    function endLottery() public override onlySeller {
+        changeLotteryState(LotteryState.ENDED);
+        transferDepositsBack();
+        emit LotteryEnded();
     }
 }

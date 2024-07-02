@@ -20,6 +20,7 @@ contract SaleBase is Ownable(msg.sender), ERC2771Context(0xd8253782c45a12053594b
     address public seller;
     uint256 public minimumDepositAmount;
     uint256 public numberOfTickets;
+    uint256 public ticketPrice;
     mapping(address => bool) public hasMinted;
     mapping(address => uint256) public deposits;
     mapping(address => bool) public winners;
@@ -33,6 +34,7 @@ contract SaleBase is Ownable(msg.sender), ERC2771Context(0xd8253782c45a12053594b
     event WinnerSelected(address indexed winner);
     event BuyerWithdrew(address indexed buyer, uint256 indexed amount);
     event BuyerDeposited(address indexed buyer, uint256 indexed amount);
+    event DepositsReturned(uint256 returnedDepositsCount);
 
     modifier onlySeller() {
         require(_msgSender() == seller, "Only seller can call this function");
@@ -126,12 +128,34 @@ contract SaleBase is Ownable(msg.sender), ERC2771Context(0xd8253782c45a12053594b
         emit LotteryStarted();
     }
 
-    function endLottery() public onlySeller {
+    function endLottery() public virtual onlySeller {
         changeLotteryState(LotteryState.ENDED);
         emit LotteryEnded();
     }
 
     function getDepositedAmount(address participant) external virtual view returns (uint256) {
         return deposits[participant];
+    }
+
+    function transferDepositsBack() virtual internal onlySeller lotteryEnded {
+        uint256 participantsLength = participants.length;
+        address[] memory participantsCopy = new address[](participantsLength);
+        for (uint256 i = 0; i < participantsLength; i++) {
+            participantsCopy[i] = participants[i];
+        }
+        for (uint256 i = 0; i < participantsLength; i++) {
+            address participant = participantsCopy[i];
+            uint256 depositAmount = deposits[participant];
+            deposits[participant] = 0;
+
+            if (isWinner(participant)) {
+                uint256 winnerRemainingDeposit = depositAmount - ticketPrice;
+                IERC20(usdcContractAddr).transfer(participant, winnerRemainingDeposit);
+            } else {
+                IERC20(usdcContractAddr).transfer(participant, depositAmount);
+            }
+        }
+        delete participants;
+        emit DepositsReturned(participantsLength);
     }
 }

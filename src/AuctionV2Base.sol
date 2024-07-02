@@ -16,7 +16,7 @@ contract AuctionV2Base is SaleBase {
         seller = config._seller;
         _transferOwnership(config._owner);
         numberOfTickets = config._ticketAmount;
-        minimumDepositAmount = config._ticketPrice;
+        ticketPrice = config._ticketPrice;
         initialPrice = config._ticketPrice;
         usdcContractAddr = config._usdcContractAddr;
         nftContractAddr = config._nftContractAddr;
@@ -49,7 +49,11 @@ contract AuctionV2Base is SaleBase {
             }
         }
         return false;
-    }    
+    }
+
+    function getDepositedAmount(address participant) external view override returns (uint256) {
+        return Deposits[participant].amount;
+    }
 
     function deposit(uint256 amount) public lotteryStarted {
         require(!isWinner(_msgSender()), "Winners cannot deposit");
@@ -122,6 +126,28 @@ contract AuctionV2Base is SaleBase {
         }
     }
 
+    function transferDepositsBack() internal override onlySeller lotteryEnded {
+        uint256 participantsLength = participants.length;
+        address[] memory participantsCopy = new address[](participantsLength);
+        for (uint256 i = 0; i < participantsLength; i++) {
+            participantsCopy[i] = participants[i];
+        }
+        for (uint256 i = 0; i < participantsLength; i++) {
+            address participant = participantsCopy[i];
+            uint256 depositAmount = Deposits[participant].amount;
+            Deposits[participant].amount = 0;
+
+            if (isWinner(participant)) {
+                uint256 winnerRemainingDeposit = depositAmount - ticketPrice;
+                IERC20(usdcContractAddr).transfer(participant, winnerRemainingDeposit);
+            } else {
+                IERC20(usdcContractAddr).transfer(participant, depositAmount);
+            }
+        }
+        delete participants;
+        emit DepositsReturned(participantsLength);
+    }
+
     function selectWinners() external onlySeller {
         require(numberOfTickets > 0, "No tickets left to allocate");
 
@@ -151,27 +177,15 @@ contract AuctionV2Base is SaleBase {
                 }
             }
         }
+        lotteryState = LotteryState.ENDED;
+        transferDepositsBack();
         emit LotteryEnded();
-    }
-
-    function setInitPrice(uint256 _amount) public onlySeller {
-      if(initialPrice == 0) {
-        initialPrice = _amount;
-      }
-    }
-
-    function getDepositedAmount(address participant) external view override returns (uint256) {
-        return Deposits[participant].amount;
     }
 
     function mintMyNFT() public hasNotMinted {
         require(numberOfTickets > 0, "No tickets left to allocate");
         require(isWinner(_msgSender()), "Caller is not a winner");
         hasMinted[_msgSender()] = true;
-        uint256 remainingBalance = Deposits[_msgSender()].amount - minimumDepositAmount;
-        if (remainingBalance > 0) {
-            IERC20(usdcContractAddr).transfer(_msgSender(), remainingBalance);
-        }
         Deposits[_msgSender()].amount = 0;
         numberOfTickets--;
         INFTLotteryTicket(nftContractAddr).lotteryMint(_msgSender());

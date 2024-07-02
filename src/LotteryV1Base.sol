@@ -18,7 +18,7 @@ contract LotteryV1Base is SaleBase, GelatoVRFConsumerBase {
         operatorAddr = config._gelatoVrfOperator;
         _transferOwnership(config._owner);
         numberOfTickets = config._ticketAmount;
-        minimumDepositAmount = config._ticketPrice;
+        ticketPrice = config._ticketPrice;
         usdcContractAddr = config._usdcContractAddr;
         nftContractAddr = config._nftContractAddr;
         multisigWalletAddress = config._multisigWalletAddress;
@@ -38,7 +38,7 @@ contract LotteryV1Base is SaleBase, GelatoVRFConsumerBase {
 
     function deposit(uint256 amount) public lotteryStarted {
         require(usdcContractAddr != address(0), "USDC contract address not set");
-        require(amount >= minimumDepositAmount, "Not enough funds sent");
+        require(amount >= ticketPrice, "Not enough funds sent");
         require(IERC20(usdcContractAddr).allowance(_msgSender(), address(this)) >= amount, "Insufficient allowance");
 
         IERC20(usdcContractAddr).transferFrom(_msgSender(), address(this), amount);
@@ -108,33 +108,26 @@ contract LotteryV1Base is SaleBase, GelatoVRFConsumerBase {
         }
 
         if (numberOfTickets == 0) {
-            emit LotteryEnded();
             lotteryState = LotteryState.ENDED;
+            transferDepositsBack();
+            emit LotteryEnded();
         }
     }
 
     function mintMyNFT() public hasNotMinted lotteryEnded {
         require(isWinner(_msgSender()), "Caller is not a winner");
         hasMinted[_msgSender()] = true;
-        uint256 remainingBalance = deposits[_msgSender()] - minimumDepositAmount;
-        if (remainingBalance > 0) {
-            IERC20(usdcContractAddr).transfer(_msgSender(), remainingBalance);
-        }
         deposits[_msgSender()] = 0;
         INFTLotteryTicket(nftContractAddr).lotteryMint(_msgSender());
     }
 
     function transferNonWinnerDeposits(address lotteryV2addr) public onlySeller {
-        for(uint256 i = 0; i < participants.length; i++) {
+        for (uint256 i = 0; i < participants.length; i++) {
             uint256 currentDeposit = deposits[participants[i]];
             deposits[participants[i]] = 0;
             IERC20(usdcContractAddr).transfer(lotteryV2addr, currentDeposit);
             ILotteryV2(lotteryV2addr).transferDeposit(participants[i], currentDeposit);
-
-            if (i < participants.length - 1) {
-                participants[i] = participants[participants.length - 1];
-            }
-            participants.pop();
         }
+        delete participants;
     }
 }

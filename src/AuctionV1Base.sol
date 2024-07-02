@@ -22,7 +22,7 @@ contract AuctionV1Base is SaleBase, GelatoVRFConsumerBase {
         numberOfTickets = config._ticketPrice;
         prevRoundTicketsAmount = config._ticketPrice;
         minimumDepositAmount = config._ticketPrice;
-        currentPrice = config._ticketPrice;
+        ticketPrice = config._ticketPrice;
         initialPrice = config._ticketPrice;
         increasePriceStep = config._priceIncreaseStep;
         usdcContractAddr = config._usdcContractAddr;
@@ -45,7 +45,6 @@ contract AuctionV1Base is SaleBase, GelatoVRFConsumerBase {
     mapping(address => bool) public operators;
     address public lotteryV2Addr;
     address public operatorAddr;
-    uint256 public currentPrice;
     uint256 public initialPrice;
     uint256 public prevRoundDeposits = 1;
     uint256 public prevRoundTicketsAmount = 1;
@@ -78,7 +77,7 @@ contract AuctionV1Base is SaleBase, GelatoVRFConsumerBase {
             participants.push(_msgSender());
         }
         deposits[_msgSender()] += amount;
-        if (amount >= currentPrice) {
+        if (amount >= ticketPrice) {
             prevRoundDeposits += 1;
         }
         emit BuyerDeposited(_msgSender(), amount);
@@ -94,17 +93,17 @@ contract AuctionV1Base is SaleBase, GelatoVRFConsumerBase {
         uint256 newPrice = 0;
         if (prevRoundDeposits >= totalNumberOfTickets) {
             // higher demand than supply, increase price
-            newPrice = currentPrice + increasePriceStep * (prevRoundDeposits / prevRoundTicketsAmount);
+            newPrice = ticketPrice + increasePriceStep * (prevRoundDeposits / prevRoundTicketsAmount);
         } else {
             // lower demand than supply, decrease price
             uint256 decreaseAmount = increasePriceStep * (1 - prevRoundDeposits / prevRoundTicketsAmount);
-            if (currentPrice > decreaseAmount) {
-                newPrice = currentPrice - decreaseAmount;
+            if (ticketPrice > decreaseAmount) {
+                newPrice = ticketPrice - decreaseAmount;
             } else {
                 newPrice = initialPrice;
             }
         }
-        currentPrice = newPrice;
+        ticketPrice = newPrice;
         prevRoundDeposits = 0;
         numberOfTickets = _numberOfTickets;
         prevRoundTicketsAmount = _numberOfTickets;
@@ -184,8 +183,10 @@ contract AuctionV1Base is SaleBase, GelatoVRFConsumerBase {
 
         rounds[roundCounter - 1].winnersSelected = true;
         lotteryState = LotteryState.NOT_STARTED;
+
         if (totalNumberOfTickets == 0) {
             lotteryState = LotteryState.ENDED;
+            transferDepositsBack();
             emit LotteryEnded();
         }
     }
@@ -194,10 +195,6 @@ contract AuctionV1Base is SaleBase, GelatoVRFConsumerBase {
         require(isWinner(_msgSender()), "Caller is not a winner");
         require(!hasMinted[_msgSender()], "NFT already minted");
         hasMinted[_msgSender()] = true;
-        uint256 remainingBalance = deposits[_msgSender()] - currentPrice;
-        if (remainingBalance > 0) {
-            IERC20(usdcContractAddr).transfer(_msgSender(), remainingBalance);
-        }
         deposits[_msgSender()] = 0;
         INFTLotteryTicket(nftContractAddr).lotteryMint(_msgSender());
     }
@@ -213,16 +210,13 @@ contract AuctionV1Base is SaleBase, GelatoVRFConsumerBase {
     }
 
     function transferNonWinnerBids(address destinationAddr) public onlySeller {
-        for(uint256 i = 0; i < participants.length; i++) {
+        for (uint256 i = 0; i < participants.length; i++) {
             uint256 currentDeposit = deposits[participants[i]];
             deposits[participants[i]] = 0;
             IERC20(usdcContractAddr).transfer(destinationAddr, currentDeposit);
             IAuctionV2(destinationAddr).transferDeposit(participants[i], currentDeposit);
-
-            if (i < participants.length - 1) {
-                participants[i] = participants[participants.length - 1];
-            }
-            participants.pop();
         }
+        delete participants;
     }
+
 }
