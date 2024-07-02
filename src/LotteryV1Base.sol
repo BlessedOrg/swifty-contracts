@@ -40,6 +40,7 @@ contract LotteryV1Base is SaleBase, GelatoVRFConsumerBase {
         require(usdcContractAddr != address(0), "USDC contract address not set");
         require(amount >= ticketPrice, "Not enough funds sent");
         require(IERC20(usdcContractAddr).allowance(_msgSender(), address(this)) >= amount, "Insufficient allowance");
+        require(randomNumber == 0, "Lottery deposits are locked; random number is generated");
 
         IERC20(usdcContractAddr).transferFrom(_msgSender(), address(this), amount);
 
@@ -50,7 +51,8 @@ contract LotteryV1Base is SaleBase, GelatoVRFConsumerBase {
         emit BuyerDeposited(_msgSender(), amount);
     }
 
-    function requestRandomness() external onlySeller {
+    function requestRandomness() external onlySeller lotteryStarted {
+        lotteryState = LotteryState.ENDED;
         _requestRandomness(abi.encode(_msgSender()));
         emit RandomRequested(_msgSender());
     }
@@ -60,7 +62,8 @@ contract LotteryV1Base is SaleBase, GelatoVRFConsumerBase {
         emit RandomFulfilled(randomness);
     }
 
-    function selectWinners() external onlySeller lotteryStarted {
+    function selectWinners() external onlySeller lotteryEnded {
+        require(randomNumber > 0, "Random number is not generated");
         require(numberOfTickets > 0, "No tickets left to allocate");
         uint256 participantsLength = participants.length;
 

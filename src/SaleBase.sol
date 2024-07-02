@@ -18,7 +18,6 @@ contract SaleBase is Ownable(msg.sender), ERC2771Context(0xd8253782c45a12053594b
     bool public initialized = false;
     address public multisigWalletAddress;
     address public seller;
-    uint256 public minimumDepositAmount;
     uint256 public numberOfTickets;
     uint256 public ticketPrice;
     mapping(address => bool) public hasMinted;

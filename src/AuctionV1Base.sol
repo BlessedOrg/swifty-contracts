@@ -21,7 +21,6 @@ contract AuctionV1Base is SaleBase, GelatoVRFConsumerBase {
         totalNumberOfTickets = config._ticketAmount;
         numberOfTickets = config._ticketPrice;
         prevRoundTicketsAmount = config._ticketPrice;
-        minimumDepositAmount = config._ticketPrice;
         ticketPrice = config._ticketPrice;
         initialPrice = config._ticketPrice;
         increasePriceStep = config._priceIncreaseStep;
@@ -29,6 +28,7 @@ contract AuctionV1Base is SaleBase, GelatoVRFConsumerBase {
         nftContractAddr = config._nftContractAddr;
         multisigWalletAddress = config._multisigWalletAddress;
         lotteryV2Addr = config._prevPhaseContractAddr;
+        roundCounter = 1;
 
         initialized = true;
     }
@@ -37,11 +37,12 @@ contract AuctionV1Base is SaleBase, GelatoVRFConsumerBase {
         uint256 number;
         uint256 finishAt;
         uint256 numberOfTickets;
+        uint256 randomNumber;
         bool lotteryStarted;
         bool winnersSelected;
     }
     mapping(uint256 => Round) public rounds;
-    uint256 public roundCounter = 1;
+    uint256 public roundCounter;
     mapping(address => bool) public operators;
     address public lotteryV2Addr;
     address public operatorAddr;
@@ -50,7 +51,6 @@ contract AuctionV1Base is SaleBase, GelatoVRFConsumerBase {
     uint256 public prevRoundTicketsAmount = 1;
     uint256 public increasePriceStep = 5;
     uint256 public totalNumberOfTickets;
-    uint256 public randomNumber;
 
     event RandomRequested(address indexed requester);
     event RandomFulfilled(uint256 number);
@@ -68,8 +68,9 @@ contract AuctionV1Base is SaleBase, GelatoVRFConsumerBase {
     function deposit(uint256 amount) public {
         require(!isWinner(_msgSender()), "Winners cannot deposit");
         require(usdcContractAddr != address(0), "USDC contract address not set");
-        require(amount >= minimumDepositAmount, "Not enough funds sent");
+        require(amount >= ticketPrice, "Not enough funds sent");
         require(IERC20(usdcContractAddr).allowance(_msgSender(), address(this)) >= amount, "Insufficient allowance");
+        require(rounds[roundCounter - 1].randomNumber == 0, "You can't deposit after round is finished");
 
         IERC20(usdcContractAddr).transferFrom(_msgSender(), address(this), amount);
 
@@ -89,6 +90,9 @@ contract AuctionV1Base is SaleBase, GelatoVRFConsumerBase {
 
     function setupNewRound(uint256 _finishAt, uint256 _numberOfTickets) public onlyOperator {
         require(_numberOfTickets <= totalNumberOfTickets, "Tickets per round cannot be higher than total number of tickets in AuctionV1");
+        if (roundCounter > 1) {
+            require(rounds[roundCounter - 1].winnersSelected == true, "Finish last round first by selecting winners");
+        }
 
         uint256 newPrice = 0;
         if (prevRoundDeposits >= totalNumberOfTickets) {
@@ -113,6 +117,7 @@ contract AuctionV1Base is SaleBase, GelatoVRFConsumerBase {
             number: roundCounter,
             finishAt: _finishAt,
             numberOfTickets: _numberOfTickets,
+            randomNumber: 0,
             lotteryStarted: true,
             winnersSelected: false
         });
@@ -124,16 +129,19 @@ contract AuctionV1Base is SaleBase, GelatoVRFConsumerBase {
     }
 
     function requestRandomness() external onlySeller {
+        require(roundCounter > 1, "Setup first round");
+        require(rounds[roundCounter - 1].finishAt <= block.timestamp, "Round is not ended yet");
         _requestRandomness(abi.encode(_msgSender()));
         emit RandomRequested(_msgSender());
     }
 
     function _fulfillRandomness(uint256 randomness, uint256, bytes memory) internal override {
-        randomNumber = randomness;
+        rounds[roundCounter - 1].randomNumber = randomness;
         emit RandomFulfilled(randomness);
     }
 
     function selectWinners() external onlySeller {
+        require(rounds[roundCounter - 1].randomNumber > 0, "Random number for last round is not generated");
         require(numberOfTickets > 0, "No tickets left to allocate");
         lotteryState = LotteryState.ACTIVE;
         uint256 participantsLength = participants.length;
@@ -153,7 +161,7 @@ contract AuctionV1Base is SaleBase, GelatoVRFConsumerBase {
         } else {
             // Shuffle the array of participants
             for (uint j = 0; j < participantsLength; j++) {
-                uint n = j + randomNumber % (participantsLength - j);
+                uint n = j + rounds[roundCounter - 1].randomNumber % (participantsLength - j);
                 address temp = participants[n];
                 participants[n] = participants[j];
                 participants[j] = temp;
