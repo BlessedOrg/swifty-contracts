@@ -13,8 +13,7 @@ import "src/interfaces/IAuctionV1.sol";
 import "src/interfaces/ILotteryV1.sol";
 
 contract LotteryV2Base is SaleBase, GelatoVRFConsumerBase {
-    function initialize(StructsLibrary.ILotteryV2BaseConfig memory config) public {
-        require(initialized == false, "Already initialized");
+    function initialize(StructsLibrary.ILotteryV2BaseConfig memory config) public initializer {
         seller = config._blessedOperator;
         operatorAddr = config._gelatoVrfOperator;
         _transferOwnership(config._owner);
@@ -26,8 +25,6 @@ contract LotteryV2Base is SaleBase, GelatoVRFConsumerBase {
         nftContractAddr = config._nftContractAddr;
         multisigWalletAddress = config._multisigWalletAddress;
         lotteryV1Addr = config._prevPhaseContractAddr;
-
-        initialized = true;
     }
 
     address public operatorAddr;

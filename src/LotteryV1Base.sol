@@ -12,8 +12,7 @@ import "src/interfaces/IERC20.sol";
 import "src/interfaces/ILotteryV2.sol";
 
 contract LotteryV1Base is SaleBase, GelatoVRFConsumerBase {
-    function initialize(StructsLibrary.ILotteryV1BaseConfig memory config) public {
-        require(initialized == false, "Already initialized");
+    function initialize(StructsLibrary.ILotteryV1BaseConfig memory config) public initializer {
         seller = config._blessedOperator;
         operatorAddr = config._gelatoVrfOperator;
         _transferOwnership(config._owner);
@@ -22,8 +21,6 @@ contract LotteryV1Base is SaleBase, GelatoVRFConsumerBase {
         usdcContractAddr = config._usdcContractAddr;
         nftContractAddr = config._nftContractAddr;
         multisigWalletAddress = config._multisigWalletAddress;
-
-        initialized = true;
     }
 
     address public operatorAddr;

@@ -4,10 +4,16 @@ pragma solidity ^0.8.13;
 import { Ownable } from "../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
 import { ERC2771Context } from "../lib/relay-context-contracts/contracts/vendor/ERC2771Context.sol";
 import { Context } from "../lib/openzeppelin-contracts/contracts/utils/Context.sol";
+import { Initializable } from "../lib/openzeppelin-contracts/contracts/proxy/utils/Initializable.sol";
 import { StructsLibrary } from "./vendor/StructsLibrary.sol";
 import "src/interfaces/IERC20.sol";
 
-contract SaleBase is Ownable(msg.sender), ERC2771Context(0xd8253782c45a12053594b9deB72d8e8aB2Fca54c) {
+contract SaleBase is Initializable, Ownable(msg.sender), ERC2771Context(0xd8253782c45a12053594b9deB72d8e8aB2Fca54c) {
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
     enum LotteryState {
         NOT_STARTED,
         ACTIVE,
@@ -15,7 +21,6 @@ contract SaleBase is Ownable(msg.sender), ERC2771Context(0xd8253782c45a12053594b
     }
 
     LotteryState public lotteryState;
-    bool public initialized = false;
     address public multisigWalletAddress;
     address public seller;
     uint256 public numberOfTickets;

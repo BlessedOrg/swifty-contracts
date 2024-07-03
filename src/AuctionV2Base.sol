@@ -11,8 +11,7 @@ import "src/interfaces/IERC20.sol";
 import "src/interfaces/ILotteryV2.sol";
 
 contract AuctionV2Base is SaleBase {
-    function initialize(StructsLibrary.IAuctionV2BaseConfig memory config) public {
-        require(initialized == false, "Already initialized");
+    function initialize(StructsLibrary.IAuctionV2BaseConfig memory config) public initializer {
         seller = config._seller;
         _transferOwnership(config._owner);
         numberOfTickets = config._ticketAmount;
@@ -22,8 +21,6 @@ contract AuctionV2Base is SaleBase {
         nftContractAddr = config._nftContractAddr;
         multisigWalletAddress = config._multisigWalletAddress;
         auctionV1Addr = config._prevPhaseContractAddr;
-
-        initialized = true;
     }
 
     struct Deposit {
