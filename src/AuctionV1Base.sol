@@ -39,6 +39,7 @@ contract AuctionV1Base is SaleBase, GelatoVRFConsumerBase {
         uint256 numberOfTickets;
         uint256 randomNumber;
         bool lotteryStarted;
+        bool lotteryFinished;
         bool winnersSelected;
     }
     mapping(uint256 => Round) public rounds;
@@ -70,7 +71,7 @@ contract AuctionV1Base is SaleBase, GelatoVRFConsumerBase {
         require(usdcContractAddr != address(0), "USDC contract address not set");
         require(amount >= ticketPrice, "Not enough funds sent");
         require(IERC20(usdcContractAddr).allowance(_msgSender(), address(this)) >= amount, "Insufficient allowance");
-        require(rounds[roundCounter - 1].randomNumber == 0, "You can't deposit after round is finished");
+        require(rounds[roundCounter - 1].lotteryFinished == false, "You can't deposit after round is finished");
 
         IERC20(usdcContractAddr).transferFrom(_msgSender(), address(this), amount);
 
@@ -119,6 +120,7 @@ contract AuctionV1Base is SaleBase, GelatoVRFConsumerBase {
             numberOfTickets: _numberOfTickets,
             randomNumber: 0,
             lotteryStarted: true,
+            lotteryFinished: false,
             winnersSelected: false
         });
         emit RoundSet(roundCounter, _finishAt, _numberOfTickets);
@@ -131,6 +133,7 @@ contract AuctionV1Base is SaleBase, GelatoVRFConsumerBase {
     function requestRandomness() external onlySeller {
         require(roundCounter > 1, "Setup first round");
         require(rounds[roundCounter - 1].finishAt <= block.timestamp, "Round is not ended yet");
+        rounds[roundCounter - 1].lotteryFinished = true;
         _requestRandomness(abi.encode(_msgSender()));
         emit RandomRequested(_msgSender());
     }
