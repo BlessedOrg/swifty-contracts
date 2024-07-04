@@ -3,8 +3,8 @@ pragma solidity ^0.8.13;
 
 contract StructsLibrary {
     struct ILotteryV1BaseConfig {
+        address _seller;
         address _gelatoVrfOperator;
-        address _blessedOperator;
         address _owner;
         uint256 _ticketAmount;
         uint256 _ticketPrice;
@@ -29,8 +29,8 @@ contract StructsLibrary {
     }
 
     struct IAuctionV1BaseConfig {
+        address _seller;
         address _gelatoVrfOperator;
-        address _blessedOperator;
         address _owner;
         uint256 _ticketAmount;
         uint256 _ticketPrice;

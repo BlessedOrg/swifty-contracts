@@ -65,8 +65,8 @@ contract BlessedFactory is Ownable(msg.sender) {
         // Deploy LotteryV1 and link NFT
         address lotteryV1Clone = Clones.clone(lotteryV1);
         StructsLibrary.ILotteryV1BaseConfig memory lotteryV1Config = StructsLibrary.ILotteryV1BaseConfig({
+            _seller: config._seller,
             _gelatoVrfOperator: config._gelatoVrfOperator,
-            _blessedOperator: config._blessedOperator,
             _owner: address(this),
             _ticketAmount: config._lotteryV1TicketAmount,
             _ticketPrice: config._ticketPrice,
@@ -99,8 +99,8 @@ contract BlessedFactory is Ownable(msg.sender) {
         // Deploy AuctionV1 and link NFT
         address auctionV1Clone = Clones.clone(auctionV1);
         StructsLibrary.IAuctionV1BaseConfig memory auctionV1Config = StructsLibrary.IAuctionV1BaseConfig({
+            _seller: config._seller,
             _gelatoVrfOperator: config._gelatoVrfOperator,
-            _blessedOperator: config._blessedOperator,
             _owner: address(this),
             _ticketAmount: config._auctionV1TicketAmount,
             _ticketPrice: config._ticketPrice,

@@ -14,7 +14,7 @@ import "src/interfaces/IAuctionV2.sol";
 
 contract AuctionV1Base is SaleBase, GelatoVRFConsumerBase {
     function initialize(StructsLibrary.IAuctionV1BaseConfig memory config) public initializer {
-        seller = config._blessedOperator;
+        seller = config._seller;
         operatorAddr = config._gelatoVrfOperator;
         _transferOwnership(config._owner);
         totalNumberOfTickets = config._ticketAmount;

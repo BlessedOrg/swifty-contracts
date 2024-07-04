@@ -13,7 +13,7 @@ import "src/interfaces/ILotteryV2.sol";
 
 contract LotteryV1Base is SaleBase, GelatoVRFConsumerBase {
     function initialize(StructsLibrary.ILotteryV1BaseConfig memory config) public initializer {
-        seller = config._blessedOperator;
+        seller = config._seller;
         operatorAddr = config._gelatoVrfOperator;
         _transferOwnership(config._owner);
         numberOfTickets = config._ticketAmount;
