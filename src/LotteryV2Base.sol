@@ -33,6 +33,7 @@ contract LotteryV2Base is SaleBase, GelatoVRFConsumerBase {
     mapping(address => uint256) public rolledNumbers;
     uint256 public rollPrice;
     uint256 public rollTolerance;
+    uint256 public constant MAX_RANDOM = 1e14;
 
     event RandomRequested(address indexed requester);
     event RandomFulfilled(address indexed requester, uint256 number);
@@ -63,7 +64,7 @@ contract LotteryV2Base is SaleBase, GelatoVRFConsumerBase {
 
     function _fulfillRandomness(uint256 randomness, uint256, bytes memory extraData) internal override {
         address requestedBy = abi.decode(extraData, (address));
-        uint256 _randomNumber = randomness % 100_000_000_000_000;
+        uint256 _randomNumber =  randomness % MAX_RANDOM;
 
         if (requestedBy == seller) {
             randomNumber = _randomNumber;
@@ -104,14 +105,15 @@ contract LotteryV2Base is SaleBase, GelatoVRFConsumerBase {
     }
 
     function isClaimable(address _participant) public view returns (bool) {
-        uint256 lowerLimit = rolledNumbers[_participant] - ((rolledNumbers[_participant] * rollTolerance / 100));
-        uint256 upperLimit = rolledNumbers[_participant] + ((rolledNumbers[_participant] * rollTolerance / 100));
-        bool isWithinTolerance = (randomNumber >= lowerLimit) && (randomNumber <= upperLimit);
+        uint256 tolerance = (MAX_RANDOM * rollTolerance) / 100;
+        uint256 lowerLimit = (randomNumber >= tolerance) ? randomNumber - tolerance : 0;
+        uint256 upperLimit = (randomNumber + tolerance <= MAX_RANDOM) ? randomNumber + tolerance : MAX_RANDOM;
 
-        if (deposits[_participant] >= ticketPrice && isWithinTolerance) {
-            return true;
-        }
-        return false;
+        uint256 participantNumber = rolledNumbers[_participant];
+
+        bool isWithinTolerance = (participantNumber >= lowerLimit && participantNumber <= upperLimit);
+
+        return (deposits[_participant] >= ticketPrice && isWithinTolerance);
     }
 
     function claimNumber(address _participant) public returns (bool) {
