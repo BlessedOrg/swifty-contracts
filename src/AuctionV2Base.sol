@@ -24,9 +24,10 @@ contract AuctionV2Base is SaleBase {
     }
 
     struct Deposit {
-      uint256 amount;
-      uint256 timestamp;
-      bool isWinner;
+        uint256 amount;
+        uint256 statsAmount;
+        uint256 timestamp;
+        bool isWinner;
     }
     mapping(address => Deposit) public Deposits;
     mapping(address => bool) public operators;
@@ -52,6 +53,10 @@ contract AuctionV2Base is SaleBase {
         return Deposits[participant].amount;
     }
 
+    function setOperator(address _operator, bool _flag) public onlyOwner {
+        operators[_operator] = _flag;
+    }
+
     function deposit(uint256 amount) public lotteryStarted {
         require(!isWinner(_msgSender()), "Winners cannot deposit");
         require(usdcContractAddr != address(0), "USDC contract address not set");
@@ -62,15 +67,12 @@ contract AuctionV2Base is SaleBase {
         
         if(isParticipant(_msgSender())) {
             Deposits[_msgSender()].amount += amount;
+            Deposits[_msgSender()].statsAmount += amount;
         } else {
-            Deposits[_msgSender()] = Deposit(amount, block.timestamp, false);
+            Deposits[_msgSender()] = Deposit(amount, amount, block.timestamp, false);
             participants.push(_msgSender());
         }
         emit BuyerDeposited(_msgSender(), amount);
-    }
-
-    function setOperator(address _operator, bool _flag) public onlyOwner {
-        operators[_operator] = _flag;
     }
 
     function setWinner(address _winner) internal override onlySeller {
@@ -141,7 +143,6 @@ contract AuctionV2Base is SaleBase {
                 IERC20(usdcContractAddr).transfer(participant, depositAmount);
             }
         }
-        delete participants;
         emit DepositsReturned(participantsLength);
     }
 
@@ -194,7 +195,7 @@ contract AuctionV2Base is SaleBase {
         if(isParticipant(_participant)) {
             Deposits[_participant].amount += _amount;
         } else {
-            Deposits[_participant] = Deposit(_amount, block.timestamp, false);
+            Deposits[_participant] = Deposit(_amount, _amount, block.timestamp, false);
             participants.push(_participant);
         }
     }    
