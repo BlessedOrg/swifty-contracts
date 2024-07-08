@@ -43,6 +43,11 @@ contract LotteryV2Base is SaleBase, GelatoVRFConsumerBase {
         _;
     }
 
+    modifier winnersLimit() {
+        require(winnerAddresses.length <= numberOfTickets, "All tickets already allocated to winners");
+        _;
+    }
+
     function _operator() internal view override returns (address) {
         return operatorAddr;
     }
@@ -65,7 +70,7 @@ contract LotteryV2Base is SaleBase, GelatoVRFConsumerBase {
         emit RandomFulfilled(requestedBy, _randomNumber);
     }
 
-    function deposit(uint256 amount) public lotteryStarted hasNotWonInLotteryV1(_msgSender()) {
+    function deposit(uint256 amount) public lotteryStarted hasNotWonInLotteryV1(_msgSender()) winnersLimit {
         require(usdcContractAddr != address(0), "USDC contract address not set");
         require(amount >= rollPrice, "Not enough funds sent");
         require(IERC20(usdcContractAddr).allowance(_msgSender(), address(this)) >= amount, "Insufficient allowance");
@@ -84,7 +89,7 @@ contract LotteryV2Base is SaleBase, GelatoVRFConsumerBase {
         emit BuyerDeposited(_msgSender(), amount);
     }
 
-    function roll() public lotteryStarted {
+    function roll() public lotteryStarted winnersLimit {
         require(rollPrice > 0, "No roll price set");
         require(deposits[_msgSender()] >= rollPrice + ticketPrice, "Insufficient funds");
 
@@ -144,6 +149,7 @@ contract LotteryV2Base is SaleBase, GelatoVRFConsumerBase {
     function mintMyNFT() public hasNotMinted hasWon hasNotWonInLotteryV1(_msgSender()) {
         hasMinted[_msgSender()] = true;
         deposits[_msgSender()] = 0;
+        numberOfTickets--;
         INFTLotteryTicket(nftContractAddr).lotteryMint(_msgSender());
     }
 
