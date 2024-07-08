@@ -47,16 +47,6 @@ contract LotteryV2Base is SaleBase, GelatoVRFConsumerBase {
         return operatorAddr;
     }
 
-    function setRandomNumber() public onlySeller() {
-        require(randomNumber == 0, "Random number already set");
-        randomNumber = getRandomNumber();
-    }
-
-    function getRandomNumber() public view returns (uint256) {
-        // it's used as a mockup for tests
-        return uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao, _msgSender())));
-    }
-
     function requestRandomness() external onlySeller {
         _requestRandomness(abi.encode(_msgSender()));
         emit RandomRequested(_msgSender());
@@ -154,10 +144,6 @@ contract LotteryV2Base is SaleBase, GelatoVRFConsumerBase {
     function mintMyNFT() public hasNotMinted hasNotWonInLotteryV1(_msgSender()) {
         require(isWinner(_msgSender()), "Caller is not a winner");
         hasMinted[_msgSender()] = true;
-        uint256 remainingBalance = deposits[_msgSender()] - ticketPrice;
-        if (remainingBalance > 0) {
-            IERC20(usdcContractAddr).transfer(_msgSender(), remainingBalance);
-        }
         deposits[_msgSender()] = 0;
         INFTLotteryTicket(nftContractAddr).lotteryMint(_msgSender());
     }
