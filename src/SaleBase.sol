@@ -70,6 +70,11 @@ contract SaleBase is Initializable, Ownable(msg.sender), ERC2771Context(0xd82537
         _;
     }
 
+    modifier hasWon() {
+        require(isWinner(_msgSender()), "Caller is not a winner");
+        _;
+    }
+
     function setSeller(address _seller) external onlySeller {
         seller = _seller;
     }
@@ -154,7 +159,9 @@ contract SaleBase is Initializable, Ownable(msg.sender), ERC2771Context(0xd82537
 
             if (isWinner(participant)) {
                 uint256 winnerRemainingDeposit = depositAmount - ticketPrice;
-                IERC20(usdcContractAddr).transfer(participant, winnerRemainingDeposit);
+                if (winnerRemainingDeposit > 0) {
+                    IERC20(usdcContractAddr).transfer(participant, winnerRemainingDeposit);
+                }
             } else {
                 IERC20(usdcContractAddr).transfer(participant, depositAmount);
             }

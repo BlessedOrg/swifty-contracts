@@ -141,8 +141,7 @@ contract LotteryV2Base is SaleBase, GelatoVRFConsumerBase {
         }
     }
 
-    function mintMyNFT() public hasNotMinted hasNotWonInLotteryV1(_msgSender()) {
-        require(isWinner(_msgSender()), "Caller is not a winner");
+    function mintMyNFT() public hasNotMinted hasWon hasNotWonInLotteryV1(_msgSender()) {
         hasMinted[_msgSender()] = true;
         deposits[_msgSender()] = 0;
         INFTLotteryTicket(nftContractAddr).lotteryMint(_msgSender());

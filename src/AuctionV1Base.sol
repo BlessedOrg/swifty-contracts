@@ -199,9 +199,7 @@ contract AuctionV1Base is SaleBase, GelatoVRFConsumerBase {
         }
     }
 
-    function mintMyNFT() public {
-        require(isWinner(_msgSender()), "Caller is not a winner");
-        require(!hasMinted[_msgSender()], "NFT already minted");
+    function mintMyNFT() public hasNotMinted hasWon {
         hasMinted[_msgSender()] = true;
         deposits[_msgSender()] = 0;
         INFTLotteryTicket(nftContractAddr).lotteryMint(_msgSender());

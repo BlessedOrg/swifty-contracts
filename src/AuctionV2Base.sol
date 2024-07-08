@@ -180,9 +180,8 @@ contract AuctionV2Base is SaleBase {
         emit LotteryEnded();
     }
 
-    function mintMyNFT() public hasNotMinted {
+    function mintMyNFT() public hasNotMinted hasWon {
         require(numberOfTickets > 0, "No tickets left to allocate");
-        require(isWinner(_msgSender()), "Caller is not a winner");
         hasMinted[_msgSender()] = true;
         Deposits[_msgSender()].amount = 0;
         numberOfTickets--;
