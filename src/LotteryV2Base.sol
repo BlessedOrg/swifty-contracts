@@ -63,7 +63,7 @@ contract LotteryV2Base is SaleBase, GelatoVRFConsumerBase {
 
     function _fulfillRandomness(uint256 randomness, uint256, bytes memory extraData) internal override {
         address requestedBy = abi.decode(extraData, (address));
-        uint256 _randomNumber =  randomness % MAX_RANDOM;
+        uint256 _randomNumber = randomness % MAX_RANDOM;
 
         if (requestedBy == seller) {
             randomNumber = _randomNumber;
