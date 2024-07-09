@@ -158,9 +158,11 @@ contract SaleBase is Initializable, Ownable(msg.sender), ERC2771Context(0xd82537
             deposits[participant] = 0;
 
             if (isWinner(participant)) {
-                uint256 winnerRemainingDeposit = depositAmount - ticketPrice;
-                if (winnerRemainingDeposit > 0) {
-                    IERC20(usdcContractAddr).transfer(participant, winnerRemainingDeposit);
+                if (depositAmount >= ticketPrice) {
+                    uint256 winnerRemainingDeposit = depositAmount - ticketPrice;
+                    if (winnerRemainingDeposit > 0) {
+                        IERC20(usdcContractAddr).transfer(participant, winnerRemainingDeposit);
+                    }
                 }
             } else {
                 IERC20(usdcContractAddr).transfer(participant, depositAmount);
