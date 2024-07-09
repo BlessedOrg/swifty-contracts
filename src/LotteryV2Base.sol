@@ -30,7 +30,11 @@ contract LotteryV2Base is SaleBase, GelatoVRFConsumerBase {
     address public operatorAddr;
     uint256 public randomNumber;
     address public lotteryV1Addr;
-    mapping(address => uint256) public rolledNumbers;
+     struct RolledNumber {
+        uint256 number;
+        bool isRolling;
+    }
+    mapping(address => RolledNumber) public rolledNumbers;
     uint256 public rollPrice;
     uint256 public rollTolerance;
     uint256 public constant MAX_RANDOM = 1e14;
@@ -64,8 +68,9 @@ contract LotteryV2Base is SaleBase, GelatoVRFConsumerBase {
         if (requestedBy == seller) {
             randomNumber = _randomNumber;
         } else {
-            rolledNumbers[requestedBy] = _randomNumber;
+            rolledNumbers[requestedBy].number = _randomNumber;
             claimNumber(requestedBy);
+            rolledNumbers[requestedBy].isRolling = false;
         }
         emit RandomFulfilled(requestedBy, _randomNumber);
     }
@@ -80,7 +85,8 @@ contract LotteryV2Base is SaleBase, GelatoVRFConsumerBase {
         if (deposits[_msgSender()] == 0) {
             participants.push(_msgSender());
 
-            if (rolledNumbers[_msgSender()] == 0) {
+            if (rolledNumbers[_msgSender()].number == 0) {
+                rolledNumbers[_msgSender()].isRolling = true;
                 _requestRandomness(abi.encode(_msgSender()));
                 emit RandomRequested(_msgSender());
             }
@@ -93,6 +99,7 @@ contract LotteryV2Base is SaleBase, GelatoVRFConsumerBase {
         require(rollPrice > 0, "No roll price set");
         require(deposits[_msgSender()] >= rollPrice + ticketPrice, "Insufficient funds");
 
+        rolledNumbers[_msgSender()].isRolling = true;
         deposits[_msgSender()] -= rollPrice;
         deposits[seller] += rollPrice;
 
@@ -104,7 +111,7 @@ contract LotteryV2Base is SaleBase, GelatoVRFConsumerBase {
         uint256 lowerLimit = (randomNumber >= tolerance) ? randomNumber - tolerance : 0;
         uint256 upperLimit = (randomNumber + tolerance <= MAX_RANDOM) ? randomNumber + tolerance : MAX_RANDOM;
 
-        uint256 participantNumber = rolledNumbers[_participant];
+        uint256 participantNumber = rolledNumbers[_participant].number;
 
         bool isWithinTolerance = (participantNumber >= lowerLimit && participantNumber <= upperLimit);
 
@@ -128,7 +135,7 @@ contract LotteryV2Base is SaleBase, GelatoVRFConsumerBase {
         if (deposits[_participant] == 0) {
             participants.push(_participant);
 
-            if (rolledNumbers[_participant] == 0) {
+            if (rolledNumbers[_participant].number == 0) {
                 _requestRandomness(abi.encode(_participant));
             }
         }
