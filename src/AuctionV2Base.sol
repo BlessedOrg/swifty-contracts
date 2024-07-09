@@ -183,7 +183,6 @@ contract AuctionV2Base is SaleBase {
     function mintMyNFT() public hasNotMinted hasWon {
         require(numberOfTickets > 0, "No tickets left to allocate");
         hasMinted[_msgSender()] = true;
-        Deposits[_msgSender()].amount = 0;
         numberOfTickets--;
         INFTLotteryTicket(nftContractAddr).lotteryMint(_msgSender());
     }
