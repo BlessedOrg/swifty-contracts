@@ -119,7 +119,7 @@ contract LotteryV2Base is SaleBase, GelatoVRFConsumerBase {
     }
 
     function claimNumber(address _participant) public returns (bool) {
-        if (isClaimable(_participant) && !winners[_participant]) {
+        if (isClaimable(_participant) && !winners[_participant] && winnerAddresses.length <= numberOfTickets)  {
             winners[_participant] = true;
             winnerAddresses.push(_participant);
             emit WinnerSelected(_participant);
