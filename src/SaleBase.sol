@@ -87,7 +87,7 @@ contract SaleBase is Initializable, Ownable(msg.sender), ERC2771Context(0xd82537
         return ERC2771Context._msgData();
     }
 
-    function getParticipants() public view returns (address[] memory) {
+    function getParticipants() public virtual view returns (address[] memory) {
         return participants;
     }
 

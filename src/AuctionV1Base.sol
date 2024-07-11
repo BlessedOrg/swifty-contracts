@@ -127,11 +127,19 @@ contract AuctionV1Base is SaleBase, GelatoVRFConsumerBase {
         roundCounter++;
     }
 
-    function getDepositedAmount(address participant, uint256 roundIndex) external view returns (uint256) {
+    function getDepositedAmount(address participant) external view override returns (uint256) {
+        return rounds[roundCounter - 1].deposits[participant];
+    }
+
+    function getParticipants() public view override returns (address[] memory) {
+        return rounds[roundCounter - 1].participants;
+    }
+
+    function getDepositedAmountForRound(address participant, uint256 roundIndex) external view returns (uint256) {
         return rounds[roundIndex].deposits[participant];
     }
 
-    function getParticipants(uint256 roundIndex) public view returns (address[] memory) {
+    function getParticipantsForRound(uint256 roundIndex) public view returns (address[] memory) {
         return rounds[roundIndex].participants;
     }
 
