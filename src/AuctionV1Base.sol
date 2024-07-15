@@ -5,6 +5,7 @@ import { Ownable } from "../lib/openzeppelin-contracts/contracts/access/Ownable.
 import { GelatoVRFConsumerBase } from "../lib/vrf-contracts/contracts/GelatoVRFConsumerBase.sol";
 import { ERC2771Context } from "../lib/relay-context-contracts/contracts/vendor/ERC2771Context.sol";
 import { Context } from "../lib/openzeppelin-contracts/contracts/utils/Context.sol";
+import { SafeMath } from "lib/foundry-chainlink-toolkit/lib/openzeppelin-contracts/contracts/utils/math/SafeMath.sol";
 import { SaleBase } from "./SaleBase.sol";
 import "src/vendor/StructsLibrary.sol";
 import "src/interfaces/INFTLotteryTicket.sol";
@@ -13,6 +14,8 @@ import "src/interfaces/ILotteryV2.sol";
 import "src/interfaces/IAuctionV2.sol";
 
 contract AuctionV1Base is SaleBase, GelatoVRFConsumerBase {
+    using SafeMath for uint256;
+
     function initialize(StructsLibrary.IAuctionV1BaseConfig memory config) public initializer {
         seller = config._seller;
         operatorAddr = config._gelatoVrfOperator;
@@ -54,7 +57,7 @@ contract AuctionV1Base is SaleBase, GelatoVRFConsumerBase {
 
     event RandomRequested(address indexed requester);
     event RandomFulfilled(uint256 number, address indexed requester);
-    event RoundSet(uint256 indexed roundNumber, uint256 finishAt, uint256 numberOfTickets);
+    event RoundSet(uint256 indexed roundNumber, uint256 finishAt, uint256 numberOfTickets, uint256 newTicketPrice);
     event DepositsReturned(uint256 returnedDepositsCount, uint256 indexed roundNumber);
 
     modifier onlyOperator() {
@@ -96,14 +99,14 @@ contract AuctionV1Base is SaleBase, GelatoVRFConsumerBase {
         }
 
         uint256 newPrice = 0;
-        if (prevRoundDeposits >= totalNumberOfTickets) {
+        if (prevRoundDeposits >= numberOfTickets) {
             // higher demand than supply, increase price
-            newPrice = ticketPrice + increasePriceStep * (prevRoundDeposits / prevRoundTicketsAmount);
+            newPrice = ticketPrice.add(increasePriceStep.mul(prevRoundDeposits.div(prevRoundTicketsAmount)));
         } else {
             // lower demand than supply, decrease price
-            uint256 decreaseAmount = increasePriceStep * (1 - prevRoundDeposits / prevRoundTicketsAmount);
+            uint256 decreaseAmount = increasePriceStep.mul(prevRoundTicketsAmount.sub(prevRoundDeposits).div(prevRoundTicketsAmount));
             if (ticketPrice > decreaseAmount) {
-                newPrice = ticketPrice - decreaseAmount;
+                newPrice = ticketPrice.sub(decreaseAmount);
             } else {
                 newPrice = initialPrice;
             }
@@ -123,7 +126,7 @@ contract AuctionV1Base is SaleBase, GelatoVRFConsumerBase {
         newRound.lotteryFinished = false;
         newRound.winnersSelected = false;
         changeLotteryState(LotteryState.ACTIVE);
-        emit RoundSet(roundCounter, _finishAt, _numberOfTickets);
+        emit RoundSet(roundCounter, _finishAt, _numberOfTickets, newPrice);
         roundCounter++;
     }
 
