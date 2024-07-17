@@ -73,9 +73,6 @@ contract LotteryV1Base is SaleBase, GelatoVRFConsumerBase {
                     emit WinnerSelected(selectedWinner);
                 }
             }
-            // Clear the participants list since all are winners
-            delete participants;
-            numberOfTickets = 0;
         } else {
             // Shuffle the array of participants
             for (uint j = 0; j < participantsLength; j++) {
@@ -93,25 +90,11 @@ contract LotteryV1Base is SaleBase, GelatoVRFConsumerBase {
                     emit WinnerSelected(selectedWinner);
                 }
             }
-
-            // Remove the winners from the participants list by shifting non-winners up
-            uint256 shiftIndex = 0;
-            for (uint256 i = numberOfTickets; i < participantsLength; i++) {
-                participants[shiftIndex] = participants[i];
-                shiftIndex++;
-            }
-            for (uint256 i = shiftIndex; i < participantsLength; i++) {
-                participants.pop();
-            }
-
-            numberOfTickets = 0;
         }
 
-        if (numberOfTickets == 0) {
-            lotteryState = LotteryState.ENDED;
-            transferDepositsBack();
-            emit LotteryEnded();
-        }
+        lotteryState = LotteryState.ENDED;
+        transferDepositsBack();
+        emit LotteryEnded();
     }
 
     function mintMyNFT() public hasNotMinted hasWon lotteryEnded {

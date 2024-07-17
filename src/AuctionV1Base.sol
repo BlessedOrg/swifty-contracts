@@ -174,9 +174,6 @@ contract AuctionV1Base is SaleBase, GelatoVRFConsumerBase {
                     emit WinnerSelected(selectedWinner);
                 }
             }
-            // Clear the participants list since all are winners
-            delete participants;
-            numberOfTickets = 0;
         } else {
             // Shuffle the array of participants
             for (uint j = 0; j < participantsLength; j++) {
@@ -194,10 +191,9 @@ contract AuctionV1Base is SaleBase, GelatoVRFConsumerBase {
                     emit WinnerSelected(selectedWinner);
                 }
             }
-
-            numberOfTickets = 0;
         }
 
+        numberOfTickets = 0;
         rounds[roundCounter - 1].winnersSelected = true;
         transferDepositsBack();
         lotteryState = LotteryState.NOT_STARTED;
@@ -218,19 +214,23 @@ contract AuctionV1Base is SaleBase, GelatoVRFConsumerBase {
         for (uint256 i = 0; i < participantsLength; i++) {
             address participant = participantsCopy[i];
             uint256 depositAmount = rounds[roundCounter - 1].deposits[participant];
-            rounds[roundCounter - 1].deposits[participant] = 0;
 
             if (isWinner(participant)) {
                 if (depositAmount >= ticketPrice) {
                     uint256 winnerRemainingDeposit = depositAmount - ticketPrice;
                     if (winnerRemainingDeposit > 0) {
+                        rounds[roundCounter - 1].deposits[participant] -= winnerRemainingDeposit;
                         IERC20(usdcContractAddr).transfer(participant, winnerRemainingDeposit);
                     }
                 }
+                totalAmountForSeller += rounds[roundCounter - 1].deposits[participant];
+                rounds[roundCounter - 1].deposits[participant] = 0;
             } else {
+                rounds[roundCounter - 1].deposits[participant] = 0;
                 IERC20(usdcContractAddr).transfer(participant, depositAmount);
             }
         }
+        sellerWithdraw();
         delete rounds[roundCounter - 1].participants;
         emit DepositsReturned(participantsLength, roundCounter - 1);
     }

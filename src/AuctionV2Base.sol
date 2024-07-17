@@ -91,24 +91,6 @@ contract AuctionV2Base is SaleBase {
         emit BuyerWithdrew(_msgSender(), amount);
     }
 
-    function sellerWithdraw() public override onlySeller() {
-        require(lotteryState == LotteryState.ENDED, "Lottery not ended");
-
-        uint256 totalAmount = 0;
-
-        for (uint256 i = 0; i < winnerAddresses.length; i++) {
-            address winner = winnerAddresses[i];
-            totalAmount += Deposits[winner].amount;
-            Deposits[winner].amount = 0; // Prevent double withdrawal
-        }
-
-        uint256 protocolTax = (totalAmount * 5) / 100; // 5% tax
-        uint256 amountToSeller = totalAmount - protocolTax;
-
-        IERC20(usdcContractAddr).transfer(multisigWalletAddress, protocolTax);
-        IERC20(usdcContractAddr).transfer(seller, amountToSeller);
-    }
-
     // sort participants by deposit amount DESC
     function sortDepositsDesc() public onlySeller {
         for (uint256 i = 0; i < participants.length; i++) {
@@ -137,12 +119,12 @@ contract AuctionV2Base is SaleBase {
             Deposits[participant].amount = 0;
 
             if (isWinner(participant)) {
-                uint256 winnerRemainingDeposit = depositAmount - ticketPrice;
-                IERC20(usdcContractAddr).transfer(participant, winnerRemainingDeposit);
+                totalAmountForSeller += depositAmount;
             } else {
                 IERC20(usdcContractAddr).transfer(participant, depositAmount);
             }
         }
+        sellerWithdraw();
         emit DepositsReturned(participantsLength);
     }
 

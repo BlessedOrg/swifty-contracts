@@ -25,6 +25,7 @@ contract SaleBase is Initializable, Ownable(msg.sender), ERC2771Context(0xd82537
     address public seller;
     uint256 public numberOfTickets;
     uint256 public ticketPrice;
+    uint256 public totalAmountForSeller;
     mapping(address => bool) public hasMinted;
     mapping(address => uint256) public deposits;
     mapping(address => bool) public winners;
@@ -118,20 +119,6 @@ contract SaleBase is Initializable, Ownable(msg.sender), ERC2771Context(0xd82537
         emit BuyerWithdrew(_msgSender(), amount);
     }
 
-    function sellerWithdraw() public virtual onlySeller {
-        require(lotteryState == LotteryState.ENDED, "Lottery not ended");
-        uint256 totalAmount = 0;
-        for (uint256 i = 0; i < winnerAddresses.length; i++) {
-            address winner = winnerAddresses[i];
-            totalAmount += deposits[winner];
-            deposits[winner] = 0; // Prevent double withdrawal
-        }
-        uint256 protocolTax = (totalAmount * 5) / 100; // 5% tax
-        uint256 amountToSeller = totalAmount - protocolTax;
-        IERC20(usdcContractAddr).transfer(multisigWalletAddress, protocolTax);
-        IERC20(usdcContractAddr).transfer(seller, amountToSeller);
-    }
-
     function startLottery() public onlySeller lotteryNotStarted {
         changeLotteryState(LotteryState.ACTIVE);
         emit LotteryStarted();
@@ -146,6 +133,14 @@ contract SaleBase is Initializable, Ownable(msg.sender), ERC2771Context(0xd82537
         return deposits[participant];
     }
 
+    function sellerWithdraw() internal virtual onlySeller {
+        uint256 protocolTax = (totalAmountForSeller * 5) / 100; // 5% tax
+        uint256 amountToSeller = totalAmountForSeller - protocolTax;
+        totalAmountForSeller = 0;
+        IERC20(usdcContractAddr).transfer(multisigWalletAddress, protocolTax);
+        IERC20(usdcContractAddr).transfer(seller, amountToSeller);
+    }
+
     function transferDepositsBack() virtual internal onlySeller lotteryEnded {
         uint256 participantsLength = participants.length;
         address[] memory participantsCopy = new address[](participantsLength);
@@ -155,19 +150,23 @@ contract SaleBase is Initializable, Ownable(msg.sender), ERC2771Context(0xd82537
         for (uint256 i = 0; i < participantsLength; i++) {
             address participant = participantsCopy[i];
             uint256 depositAmount = deposits[participant];
-            deposits[participant] = 0;
 
             if (isWinner(participant)) {
                 if (depositAmount >= ticketPrice) {
                     uint256 winnerRemainingDeposit = depositAmount - ticketPrice;
                     if (winnerRemainingDeposit > 0) {
+                        deposits[participant] -= winnerRemainingDeposit;
                         IERC20(usdcContractAddr).transfer(participant, winnerRemainingDeposit);
                     }
                 }
+                totalAmountForSeller += deposits[participant];
+                deposits[participant] = 0;
             } else {
+                deposits[participant] = 0;
                 IERC20(usdcContractAddr).transfer(participant, depositAmount);
             }
         }
+        sellerWithdraw();
         delete participants;
         emit DepositsReturned(participantsLength);
     }
