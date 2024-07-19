@@ -78,7 +78,7 @@ contract AuctionV1Base is SaleBase, GelatoVRFConsumerBase {
 
         IERC20(usdcContractAddr).transferFrom(_msgSender(), address(this), amount);
 
-        if(deposits[_msgSender()] == 0) {
+        if (rounds[roundCounter - 1].deposits[_msgSender()] == 0) {
             rounds[roundCounter - 1].participants.push(_msgSender());
         }
         rounds[roundCounter - 1].deposits[_msgSender()] += amount;
