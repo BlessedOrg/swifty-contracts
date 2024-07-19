@@ -101,14 +101,4 @@ contract LotteryV1Base is SaleBase, GelatoVRFConsumerBase {
         hasMinted[_msgSender()] = true;
         INFTLotteryTicket(nftContractAddr).lotteryMint(_msgSender());
     }
-
-    function transferNonWinnerDeposits(address lotteryV2addr) public onlySeller {
-        for (uint256 i = 0; i < participants.length; i++) {
-            uint256 currentDeposit = deposits[participants[i]];
-            deposits[participants[i]] = 0;
-            IERC20(usdcContractAddr).transfer(lotteryV2addr, currentDeposit);
-            ILotteryV2(lotteryV2addr).transferDeposit(participants[i], currentDeposit);
-        }
-        delete participants;
-    }
 }

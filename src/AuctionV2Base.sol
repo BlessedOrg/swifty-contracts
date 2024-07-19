@@ -168,15 +168,4 @@ contract AuctionV2Base is SaleBase {
         numberOfTickets--;
         INFTLotteryTicket(nftContractAddr).lotteryMint(_msgSender());
     }
-
-    function transferDeposit(address _participant, uint256 _amount) public {
-        require(auctionV1Addr == _msgSender(), "Only whitelisted may call this function");
-
-        if(isParticipant(_participant)) {
-            Deposits[_participant].amount += _amount;
-        } else {
-            Deposits[_participant] = Deposit(_amount, _amount, block.timestamp, false);
-            participants.push(_participant);
-        }
-    }    
 }

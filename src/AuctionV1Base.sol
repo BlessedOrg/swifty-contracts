@@ -239,25 +239,4 @@ contract AuctionV1Base is SaleBase, GelatoVRFConsumerBase {
         hasMinted[_msgSender()] = true;
         INFTLotteryTicket(nftContractAddr).lotteryMint(_msgSender());
     }
-
-    function transferDeposit(address _participant, uint256 _amount) public {
-        require(lotteryV2Addr == _msgSender(), "Only whitelisted may call this function");
-
-        if(deposits[_msgSender()] == 0) {
-            participants.push(_participant);
-        }
-        deposits[_participant] += _amount;
-        prevRoundDeposits += 1;
-    }
-
-    function transferNonWinnerBids(address destinationAddr) public onlySeller {
-        for (uint256 i = 0; i < participants.length; i++) {
-            uint256 currentDeposit = deposits[participants[i]];
-            deposits[participants[i]] = 0;
-            IERC20(usdcContractAddr).transfer(destinationAddr, currentDeposit);
-            IAuctionV2(destinationAddr).transferDeposit(participants[i], currentDeposit);
-        }
-        delete participants;
-    }
-
 }

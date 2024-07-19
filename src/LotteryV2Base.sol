@@ -129,30 +129,6 @@ contract LotteryV2Base is SaleBase, GelatoVRFConsumerBase {
         }
     }
 
-    function transferDeposit(address _participant, uint256 _amount) public {
-        require(lotteryV1Addr == _msgSender(), "Only whitelisted may call this function");
-
-        if (deposits[_participant] == 0) {
-            participants.push(_participant);
-
-            if (rolledNumbers[_participant].number == 0) {
-                _requestRandomness(abi.encode(_participant));
-            }
-        }
-        deposits[_participant] += _amount;
-    }
-
-    function transferNonWinnerDeposits(address auctionV1addr) public onlySeller {
-        for (uint256 i = 0; i < participants.length; i++) {
-            if (!isWinner(participants[i])) {
-                uint256 currentDeposit = deposits[participants[i]];
-                deposits[participants[i]] = 0;
-                IERC20(usdcContractAddr).transfer(auctionV1addr, currentDeposit);
-                IAuctionV1(auctionV1addr).transferDeposit(participants[i], currentDeposit);
-            }
-        }
-    }
-
     function mintMyNFT() public hasNotMinted hasWon hasNotWonInLotteryV1(_msgSender()) {
         hasMinted[_msgSender()] = true;
         numberOfTickets--;
