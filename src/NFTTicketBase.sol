@@ -13,6 +13,7 @@ contract NFTTicketBase is ERC1155("uri"), Ownable(msg.sender) {
         isTransferable = _isTransferable;
         name = _name;
         symbol = _symbol;
+        nextTokenId = 1;
         initialized = true;
     }
 
