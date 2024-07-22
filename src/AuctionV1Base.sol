@@ -100,7 +100,7 @@ contract AuctionV1Base is SaleBase, GelatoVRFConsumerBase {
         }
 
         uint256 newPrice = 0;
-        if (prevRoundDeposits >= numberOfTickets) {
+        if (prevRoundDeposits >= prevRoundTicketsAmount) {
             // higher demand than supply, increase price
             newPrice = ticketPrice.add(increasePriceStep.mul(prevRoundDeposits.div(prevRoundTicketsAmount)));
         } else {
