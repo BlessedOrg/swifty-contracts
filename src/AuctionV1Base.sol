@@ -82,6 +82,7 @@ contract AuctionV1Base is SaleBase, GelatoVRFConsumerBase {
             rounds[roundCounter - 1].participants.push(_msgSender());
         }
         rounds[roundCounter - 1].deposits[_msgSender()] += amount;
+        deposits[_msgSender()] += amount;
         if (amount >= ticketPrice) {
             prevRoundDeposits += 1;
         }
@@ -229,6 +230,7 @@ contract AuctionV1Base is SaleBase, GelatoVRFConsumerBase {
                 rounds[roundCounter - 1].deposits[participant] = 0;
                 IERC20(usdcContractAddr).transfer(participant, depositAmount);
             }
+            deposits[_msgSender()] = 0;
         }
         sellerWithdraw();
         delete rounds[roundCounter - 1].participants;
