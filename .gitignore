@@ -18,3 +18,5 @@ deploy.md
 .idea/*
 
 src/flatten
+
+copy-artifacts-to-app.sh
